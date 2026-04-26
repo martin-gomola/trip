@@ -3,79 +3,101 @@
 
 <div align="center">
 
-[![Sponsor](https://img.shields.io/badge/sponsor-30363D?style=for-the-badge&logo=GitHub-Sponsors)](https://ko-fi.com/itskovacs)
-![Status](https://img.shields.io/badge/status-active-success?style=for-the-badge)
-[![GitHub Issues](https://img.shields.io/github/issues/itskovacs/trip?style=for-the-badge&color=ededed)](https://github.com/itskovacs/trip/issues)
-![Pulls](https://img.shields.io/badge/pulls-125k+-2596be?style=for-the-badge)
-
-</div>
-
-<div align="center">
-
 ![TRIP Planning](./.github/screenshot.jpg)
 
 </div>
 
-## 📝 Table of Contents
+## About
 
-- 📦 [About](#about)
-- 🌱 [Getting Started](#getting_started)
-- 📸 [Demo](#demo)
-- 📜 [License](#license)
+TRIP (*Tourism and Recreational Interest Points*) is a self-hosted POI map and trip planner. You can save places, plan multi-day trips, track details, share routes, and keep everything on your own server.
 
-## 📦 About <a name = "about"></a>
+This repository is a personal deployment fork of the original project:
 
-TRIP (*Tourism and Recreational Interest Points*) is a self-hostable **minimalist Map tracker** and **Trip planner** to visualize your points of interest (POI) and organize your next adventure details.
+- Original repository: <https://github.com/itskovacs/trip>
+- Upstream documentation: <https://itskovacs.github.io/trip/docs/intro>
+- Upstream demo: <https://itskovacs-trip.netlify.app/>
 
-**Core Features:**
-- Map and manage POIs on interactive maps
-- Plan multi-day trips with detailed itineraries
-- Collaborate and share with travel companions
+Use upstream docs for general app behavior. Use this README and [DEPLOYMENT.md](./DEPLOYMENT.md) for this fork's Docker workflow.
 
-No telemetry. No tracking. No ads. Free, forever.
+## This Fork
 
-See the [📸 demo](#demo) to explore TRIP in action.
+This fork keeps the TRIP app and adds local deployment pieces for a hosted instance:
 
-<br>
+- `make deploy` builds this checkout into a local Docker image and recreates the container.
+- `.env.example` documents the runtime settings this deployment uses.
+- `docker-compose.yml` builds `trip-local` from the repo instead of pulling only the upstream image.
+- Alembic migrations live in `backend/trip/alembic/versions/`.
+- Local runtime files stay out of git: `.env`, storage, backups, SQLite files, and `tmp/`.
 
-## 🌱 Getting Started <a name = "getting_started"></a>
+Recent local additions include category icon selection, saved place URLs, Google Maps links, coordinate navigation, trip home/start fields, and print cleanup.
 
-If you need help, feel free to open a [discussion](https://github.com/itskovacs/trip/discussions).
+## Deploy
 
-Deployment is designed to be simple using Docker.
-
-### Option 1: Docker Compose (Recommended)
-
-Use the `docker-compose.yml` file provided in this repository. No changes are required, though you may customize it to suit your needs.
-
-Run the container:
+Copy the example config, edit it, then deploy:
 
 ```bash
-docker-compose up -d
+cp .env.example .env
+make deploy
 ```
 
-### Option 2: Docker Run
+Open the app at:
+
+```text
+http://localhost:8050
+```
+
+For a server, replace `localhost` with the server IP or point your reverse proxy at port `8050`.
+
+After you create the first user, keep registration closed:
+
+```env
+REGISTER_ENABLE=false
+```
+
+## Commands
 
 ```bash
-# Ensure you have the latest image
-docker pull ghcr.io/itskovacs/trip:1
-
-# Run the container
-docker run -d -p 8080:8000 -v ./storage:/app/storage ghcr.io/itskovacs/trip:1
+make deploy        # build local image, recreate container, wait for health
+make build         # build the local Docker image
+make restart       # recreate the container without rebuilding
+make logs          # follow logs for the trip service
+make ps            # show service status
+make down          # stop the stack
 ```
 
-### Configuration
+`make deploy` is the normal path for this fork. Plain `docker compose up -d` can try to pull an image before the local image exists, so use the Makefile when you change code.
 
-Refer to the [configuration documentation](https://itskovacs.github.io/trip/docs/getting-started/configuration) to set up OIDC authentication and other settings.
+## Configuration
 
-> [!TIP]
-> See [Documentation](https://itskovacs.github.io/trip/docs/intro) to learn more.
+Edit `.env` for host-level settings:
 
-<br>
+| Variable | Default | Use |
+|----------|---------|-----|
+| `TRIP_PORT` | `8050` | Host port for the web UI |
+| `TRIP_IMAGE` | `trip-local` | Local image name |
+| `TRIP_VERSION` | `1` | Local image tag |
+| `DATA_DIR` | `/srv/docker` | Base directory for persistent storage |
+| `REGISTER_ENABLE` | `false` | Public sign-up toggle |
+| `TRIP_API_TOKEN` | unset | Token for API scripts |
+| `OIDC_*` | unset | Optional single sign-on settings |
 
-## 📸 Demo <a name = "demo"></a>
+Keep real values in `.env`; do not commit them.
 
-A demo is available at [itskovacs-trip.netlify.app](https://itskovacs-trip.netlify.app/).
+## Data
+
+TRIP stores runtime data under:
+
+```text
+${DATA_DIR}/trip/storage/
+```
+
+That directory contains the SQLite database, uploaded assets, attachments, backups, and optional `config.env`. Back it up from the host:
+
+```bash
+tar -czf trip-backup-$(date +%Y%m%d-%H%M%S).tar.gz -C "${DATA_DIR:-/srv/docker}" trip/storage
+```
+
+## Screenshots
 
 <div align="center">
 
@@ -86,19 +108,8 @@ A demo is available at [itskovacs-trip.netlify.app](https://itskovacs-trip.netli
 
 </div>
 
-<br>
+## License
 
-## 📜 License <a name = "license"></a>
+TRIP uses the MIT License. See [LICENSE](./LICENSE).
 
-~~TRIP is licensed under the **CC-BY-NC-4.0**. You may use, modify, and share freely with attribution, but **commercial use is strictly prohibited**.~~
-
-In the spirit of free and open-source software, TRIP is now licensed under the MIT License to make it easier to use, modify, and share.
-
-<br>
-
-<div align="center">
-
-Made with ❤️ in BZH  
-
-<a href='https://ko-fi.com/itskovacs' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi1.png' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>  
-</div>
+Original project credit stays with [itskovacs/trip](https://github.com/itskovacs/trip).
