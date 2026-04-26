@@ -1,8 +1,32 @@
 services:
-  app:
-    image: ghcr.io/itskovacs/trip:1
+  trip:
+    build:
+      context: .
+    image: ${TRIP_IMAGE:-trip-local}:${TRIP_VERSION:-1}
+    pull_policy: build
+    container_name: trip
+    restart: unless-stopped
+    env_file:
+      - .env
     ports:
-      - 127.0.0.1:8080:8000 #127.0.0.1: locally exposed, on port 8080 by default
+      - "${TRIP_PORT:-8050}:8000"
     volumes:
-      - ./storage:/app/storage #If you were previously using a named volume, follow https://github.com/itskovacs/trip/releases/tag/1.5.0 to migrate your data.
+      - ${DATA_DIR:-/srv/docker}/trip/storage:/app/storage
+    environment:
+      TZ: "${TZ:-UTC}"
+      REGISTER_ENABLE: "${REGISTER_ENABLE:-false}"
     command: ["fastapi", "run", "/app/trip/main.py", "--host", "0.0.0.0"]
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/', timeout=5).status < 500 else 1)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 10s

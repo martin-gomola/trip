@@ -94,6 +94,7 @@ export class PlaceCreateModalComponent {
       ],
       category: [null, Validators.required],
       description: null,
+      url: null,
       duration: [null, Validators.pattern('\\d+')],
       price: null,
       allowdog: false,
@@ -112,10 +113,18 @@ export class PlaceCreateModalComponent {
       .subscribe({
         next: (value: string) => {
           const isGoogleMapsURL = /^(https?:\/\/)?(www\.)?google\.[a-z.]+\/maps/.test(value);
-          if (isGoogleMapsURL) this._parseGoogleMapsPlaceUrl(value);
+          if (isGoogleMapsURL) {
+            this.placeForm.get('url')?.setValue(value, { emitEvent: false });
+            this.placeForm.get('url')?.markAsDirty();
+            this._parseGoogleMapsPlaceUrl(value);
+          }
 
           const shortLinkMatch = /^https:\/\/maps.app.goo.gl\/([^\/]+)/.test(value);
-          if (shortLinkMatch) this._parseGoogleMapsShortUrl(value);
+          if (shortLinkMatch) {
+            this.placeForm.get('url')?.setValue(value, { emitEvent: false });
+            this.placeForm.get('url')?.markAsDirty();
+            this._parseGoogleMapsShortUrl(value);
+          }
         },
       });
     this.placeForm
@@ -151,6 +160,7 @@ export class PlaceCreateModalComponent {
       delete ret['image_id'];
     }
     if (ret['gpx'] == '1') delete ret['gpx'];
+    ret['url'] = ret['url']?.trim() || null;
     ret['lat'] = +ret['lat'];
     ret['lng'] = +ret['lng'];
     this.ref.close(ret);
@@ -177,6 +187,8 @@ export class PlaceCreateModalComponent {
         next: (result) => {
           this.utilsService.setLoading('');
           this.providerToForm(result);
+          this.placeForm.get('url')?.setValue(url);
+          this.placeForm.get('url')?.markAsDirty();
         },
         error: () => {
           this.utilsService.setLoading('');

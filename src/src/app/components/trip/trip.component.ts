@@ -260,7 +260,7 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     const statusesMap = new Map(this.utilsService.statuses.map((s) => [s.label, s]));
 
     return currentTrip.days
-      .map((day) => {
+      .map((day, dayIndex) => {
         let filteredItems = day.items;
 
         if (hasQuery) {
@@ -275,8 +275,9 @@ export class TripComponent implements AfterViewInit, OnDestroy {
         if (filteredItems.length === 0 && hasQuery) return null;
         filteredItems.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
 
-        let prevLat: number | null = null;
-        let prevLng: number | null = null;
+        const home = this.tripHomeCoordinate();
+        let prevLat: number | null = dayIndex === 0 && home ? home.lat : null;
+        let prevLng: number | null = dayIndex === 0 && home ? home.lng : null;
         let totalCost = 0;
         let hasPlaces = false;
 
@@ -2166,18 +2167,24 @@ export class TripComponent implements AfterViewInit, OnDestroy {
   tripDayToNavigation(dayId: number) {
     const idx = this.trip()?.days.findIndex((d) => d.id === dayId);
     if (!this.trip() || idx === undefined || idx == -1) return;
-    const data = this.trip()!.days[idx].items.sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
-    const items = data.filter((item) => item.lat && item.lng);
-    if (!items.length) return;
-    openNavigation(items.map((item) => ({ lat: item.lat!, lng: item.lng! })));
+    const coordinates = this.tripDayRouteCoordinates(this.trip()!.days[idx]);
+    if (!coordinates.length) return;
+    openNavigation(coordinates);
   }
 
   tripToNavigation() {
-    const items = this.tripViewModel()
+    const coordinates = this.tripViewModel()
       .flatMap((d) => d.items)
-      .filter((item) => item.lat && item.lng);
-    if (!items.length) return;
-    openNavigation(items.map((item) => ({ lat: item.lat!, lng: item.lng! })));
+      .map((item) => this.tripItemCoordinate(item))
+      .filter((coordinate): coordinate is L.LatLngLiteral => coordinate !== null);
+    const home = this.tripHomeCoordinate();
+    if (home) {
+      coordinates.unshift(home);
+      coordinates.push(home);
+    }
+    const route = this.dedupeCoordinates(coordinates);
+    if (!route.length) return;
+    openNavigation(route);
   }
 
   getSharedTripDetails() {
@@ -2484,14 +2491,13 @@ export class TripComponent implements AfterViewInit, OnDestroy {
   }
 
   dayRouting(day: TripDay) {
-    const coords: [number, number][] = [];
+    const coords = this.tripDayRouteCoordinates(day).map((coordinate) => [coordinate.lat, coordinate.lng] as [number, number]);
     const markers: any[] = [];
 
     day.items.forEach((item) => {
       const lat = item.lat || item.place?.lat;
       const lng = item.lng || item.place?.lng;
-      if (!lat || !lng) return;
-      coords.push([lat, lng]);
+      if (lat == null || lng == null) return;
       if (!item.place) markers.push(item);
     });
 
@@ -2580,6 +2586,45 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     const lat: number = latlng ? latlng[0] : selected!.lat!;
     const lng: number = latlng ? latlng[1] : selected!.lng!;
     this.map.flyTo([lat, lng], this.map.getZoom() || 9, { duration: 2 });
+  }
+
+  tripHomeCoordinate(): L.LatLngLiteral | null {
+    const trip = this.trip();
+    if (trip?.home_lat == null || trip.home_lng == null) return null;
+    return { lat: trip.home_lat, lng: trip.home_lng };
+  }
+
+  tripItemCoordinate(item: TripItem): L.LatLngLiteral | null {
+    const lat = item.lat ?? item.place?.lat;
+    const lng = item.lng ?? item.place?.lng;
+    if (lat == null || lng == null) return null;
+    return { lat, lng };
+  }
+
+  tripDayRouteCoordinates(day: TripDay): L.LatLngLiteral[] {
+    const trip = this.trip();
+    const coordinates = day.items
+      .slice()
+      .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
+      .map((item) => this.tripItemCoordinate(item))
+      .filter((coordinate): coordinate is L.LatLngLiteral => coordinate !== null);
+
+    const home = this.tripHomeCoordinate();
+    if (trip && home) {
+      const dayIndex = trip.days.findIndex((d) => d.id === day.id);
+      if (dayIndex === 0) coordinates.unshift(home);
+      if (dayIndex === trip.days.length - 1) coordinates.push(home);
+    }
+
+    return this.dedupeCoordinates(coordinates);
+  }
+
+  dedupeCoordinates(coordinates: L.LatLngLiteral[]): L.LatLngLiteral[] {
+    return coordinates.filter((coordinate, index) => {
+      const previous = coordinates[index - 1];
+      if (!previous) return true;
+      return previous.lat !== coordinate.lat || previous.lng !== coordinate.lng;
+    });
   }
 
   markerRightClickFn(to: Place) {

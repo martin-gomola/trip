@@ -1,5 +1,6 @@
 import { Component, HostListener } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ButtonModule } from 'primeng/button';
 import { DynamicDialogConfig, DynamicDialogRef } from 'primeng/dynamicdialog';
 import { FloatLabelModule } from 'primeng/floatlabel';
@@ -8,6 +9,7 @@ import { FocusTrapModule } from 'primeng/focustrap';
 import { DatePickerModule } from 'primeng/datepicker';
 import { ApiService } from '../../services/api.service';
 import { take } from 'rxjs';
+import { checkAndParseLatLng, formatLatLng } from '../../shared/latlng-parser';
 
 @Component({
   selector: 'app-trip-create-modal',
@@ -39,6 +41,22 @@ export class TripCreateModalComponent {
       name: ['', Validators.required],
       image: '',
       currency: null,
+      home_name: null,
+      home_lat: [
+        null,
+        {
+          validators: [Validators.pattern('-?(90(\\.0+)?|[1-8]?\\d(\\.\\d+)?)')],
+          updateOn: 'blur',
+        },
+      ],
+      home_lng: [
+        null,
+        {
+          validators: [
+            Validators.pattern('-?(180(\\.0+)?|1[0-7]\\d(\\.\\d+)?|[1-9]?\\d(\\.\\d+)?)'),
+          ],
+        },
+      ],
       image_id: null,
       daterange: null,
     });
@@ -55,12 +73,35 @@ export class TripCreateModalComponent {
           next: (settings) => this.tripForm.get('currency')?.setValue(settings.currency),
         });
     }
+
+    this.tripForm
+      .get('home_lat')
+      ?.valueChanges.pipe(takeUntilDestroyed())
+      .subscribe({
+        next: (value: string) => {
+          const result = checkAndParseLatLng(value);
+          if (!result) return;
+          const [lat, lng] = result;
+
+          const latControl = this.tripForm.get('home_lat');
+          const lngControl = this.tripForm.get('home_lng');
+
+          latControl?.setValue(formatLatLng(lat).trim(), { emitEvent: false });
+          lngControl?.setValue(formatLatLng(lng).trim(), { emitEvent: false });
+
+          lngControl?.markAsDirty();
+          lngControl?.updateValueAndValidity();
+        },
+      });
   }
 
   closeDialog() {
     if (!this.tripForm.valid) return;
     let ret = this.tripForm.value;
     if (!ret['name']) return;
+    ret['home_name'] = ret['home_name']?.trim() || null;
+    ret['home_lat'] = ret['home_lat'] === null || ret['home_lat'] === '' ? null : +ret['home_lat'];
+    ret['home_lng'] = ret['home_lng'] === null || ret['home_lng'] === '' ? null : +ret['home_lng'];
     if (ret['image_id']) {
       delete ret['image'];
       delete ret['image_id'];

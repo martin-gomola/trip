@@ -1148,14 +1148,7 @@
 <section class="hidden print:block">
   <div class="flex items-center justify-center">
     <div class="flex flex-col items-center max-w-[55vw] md:max-w-full">
-      <div class="flex flex-col items-center">
-        <img src="favicon.png" class="size-20" />
-        <div class="flex gap-2 items-center text-xs text-primary-500">
-          <i class="pi pi-github"></i>itskovacs/trip
-        </div>
-      </div>
-
-      <h1 class="mt-4 tracking-tight text-3xl font-semibold truncate p-2">{{ trip()?.name }}</h1>
+      <h1 class="tracking-tight text-3xl font-semibold truncate p-2">{{ trip()?.name }}</h1>
       @if (options?.metadata) {
       <div class="flex items-center">
         <span

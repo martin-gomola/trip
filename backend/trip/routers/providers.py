@@ -253,6 +253,8 @@ async def google_resolve_shortlink(
     url = await provider._resolve_shortlink(link_id)
 
     if place_data := await provider.url_to_place(url):
-        return await provider.result_to_place(place_data)
+        result = await provider.result_to_place(place_data)
+        result.url = url
+        return result
 
     raise HTTPException(status_code=404, detail="Place not found")

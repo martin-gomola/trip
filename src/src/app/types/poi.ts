@@ -4,6 +4,7 @@ export interface Category {
   image_id: number;
   image: string;
   color?: string;
+  icon?: string;
 }
 
 export interface Place {
@@ -21,6 +22,7 @@ export interface Place {
   image_id?: number;
   price?: number;
   description?: string;
+  url?: string;
   duration?: number;
   allowdog?: boolean;
   visited?: boolean;

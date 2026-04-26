@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, signal } from '@angular/core';
 import { ButtonModule } from 'primeng/button';
 import { MenuModule } from 'primeng/menu';
 import { Place } from '../../types/poi';
@@ -19,11 +19,12 @@ import { NaturalDurationPipe } from '../pipes/naturalduration.pipe';
   styleUrls: ['./place-box-content.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PlaceBoxContentComponent {
+export class PlaceBoxContentComponent implements OnChanges {
   @Input() selectedPlace: Place | null = null;
   @Input() showButtons: boolean = true;
   @Input() showMeta: boolean = true;
   tooltipCopied = signal(false);
+  externalUrl = signal<string | null>(null);
 
   @Output() editEmitter = new EventEmitter<void>();
   @Output() deleteEmitter = new EventEmitter<void>();
@@ -42,7 +43,14 @@ export class PlaceBoxContentComponent {
     this.buildMenu();
   }
 
+  ngOnChanges() {
+    this.buildMenu();
+  }
+
   buildMenu() {
+    const externalUrl = this.resolveExternalUrl();
+    this.externalUrl.set(externalUrl);
+
     const items = [
       {
         label: 'Edit',
@@ -79,6 +87,14 @@ export class PlaceBoxContentComponent {
         command: () => this.deletePlace(),
       },
     ];
+
+    if (externalUrl) {
+      items.splice(4, 0, {
+        label: 'Open URL',
+        icon: 'pi pi-external-link',
+        command: () => this.openUrl(),
+      });
+    }
 
     if (this.selectedPlace?.gpx) {
       items.unshift({
@@ -125,6 +141,21 @@ export class PlaceBoxContentComponent {
 
   openNavigationToPlace() {
     this.openNavigationEmitter.emit();
+  }
+
+  openUrl() {
+    const url = this.externalUrl();
+    if (!url) return;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  private resolveExternalUrl(): string | null {
+    const explicitUrl = this.selectedPlace?.url?.trim();
+    if (explicitUrl) return explicitUrl;
+
+    const description = this.selectedPlace?.description || '';
+    const match = description.match(/https?:\/\/[^\s<>"']+/);
+    return match ? match[0].replace(/[),.;!?]+$/, '') : null;
   }
 
   flyToPlace() {

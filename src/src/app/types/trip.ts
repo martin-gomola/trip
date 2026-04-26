@@ -9,6 +9,9 @@ export interface TripBase {
   days: number;
   collaborators: TripMember[];
   currency: string;
+  home_name?: string;
+  home_lat?: number;
+  home_lng?: number;
 }
 
 export interface TripBaseWithDates extends TripBase {
@@ -24,6 +27,9 @@ export interface Trip {
   days: TripDay[];
   collaborators: TripMember[];
   currency: string;
+  home_name?: string;
+  home_lat?: number;
+  home_lng?: number;
   notes?: string;
   archival_review?: string;
   attachments?: TripAttachment[];

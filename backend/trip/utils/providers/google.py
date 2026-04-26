@@ -87,6 +87,7 @@ class GoogleMapsProvider(BaseMapProvider):
             allowdog=place.get("allowsDogs"),
             restroom=place.get("restroom"),
             description="\n".join(description_parts),
+            url=place.get("googleMapsUri"),
         )
 
         if photos := place.get("photos"):
@@ -108,7 +109,8 @@ class GoogleMapsProvider(BaseMapProvider):
             "X-Goog-Api-Key": self.api_key,
             "X-Goog-FieldMask": "places.id,places.types,places.location,places.priceRange,"
             "places.formattedAddress,places.websiteUri,places.internationalPhoneNumber,"
-            "places.displayName,places.allowsDogs,places.photos,places.restroom,places.regularOpeningHours.weekdayDescriptions",
+            "places.displayName,places.googleMapsUri,places.allowsDogs,places.photos,places.restroom,"
+            "places.regularOpeningHours.weekdayDescriptions",
         }
 
         data = await self._request("POST", url, headers=headers, json=body)
@@ -125,7 +127,8 @@ class GoogleMapsProvider(BaseMapProvider):
             "X-Goog-Api-Key": self.api_key,
             "X-Goog-FieldMask": "places.id,places.types,places.location,places.priceRange,"
             "places.formattedAddress,places.websiteUri,places.internationalPhoneNumber,"
-            "places.displayName,places.allowsDogs,places.photos,places.restroom,places.regularOpeningHours.weekdayDescriptions",
+            "places.displayName,places.googleMapsUri,places.allowsDogs,places.photos,places.restroom,"
+            "places.regularOpeningHours.weekdayDescriptions",
         }
 
         data = await self._request("POST", url, headers=headers, json=body)
@@ -137,7 +140,8 @@ class GoogleMapsProvider(BaseMapProvider):
             "Content-Type": "application/json",
             "X-Goog-Api-Key": self.api_key,
             "X-Goog-FieldMask": "id,types,location,priceRange,formattedAddress,websiteUri,"
-            "internationalPhoneNumber,displayName,allowsDogs,photos,restroom,regularOpeningHours.weekdayDescriptions",
+            "internationalPhoneNumber,displayName,googleMapsUri,allowsDogs,photos,restroom,"
+            "regularOpeningHours.weekdayDescriptions",
         }
 
         return await self._request("GET", url, headers=headers)

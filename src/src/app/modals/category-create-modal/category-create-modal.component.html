@@ -1,35 +1,67 @@
-<div pFocusTrap class="grid md:grid-cols-3 items-center gap-4" [formGroup]="categoryForm">
-  <div class="grid gap-2 md:col-span-2">
-    <p-floatlabel variant="in">
-      <input id="name" formControlName="name" pInputText fluid />
-      <label for="name">Name</label>
-    </p-floatlabel>
-
-    <div class="relative w-full">
+<div pFocusTrap class="grid gap-5" [formGroup]="categoryForm">
+  <div class="grid md:grid-cols-[1fr_auto] items-start gap-4">
+    <div class="grid gap-2">
       <p-floatlabel variant="in">
-        <input id="color" formControlName="color" pInputText fluid />
-        <label for="color">Color</label>
+        <input id="name" formControlName="name" pInputText fluid />
+        <label for="name">Name</label>
       </p-floatlabel>
-      <div class="absolute right-3 top-1/2 -translate-y-1/2">
-        <p-colorpicker [ngModel]="categoryForm.get('color')?.value" (ngModelChange)="updateColorFromPicker($event)"
-          [ngModelOptions]="{ standalone: true }" appendTo="body" [pt]="{ panel: 'right-0! left-auto!' }" />
+
+      <div class="relative w-full">
+        <p-floatlabel variant="in">
+          <input id="color" formControlName="color" pInputText fluid />
+          <label for="color">Color</label>
+        </p-floatlabel>
+        <div class="absolute right-3 top-1/2 -translate-y-1/2">
+          <p-colorpicker [ngModel]="categoryForm.get('color')?.value" (ngModelChange)="updateColorFromPicker($event)"
+            [ngModelOptions]="{ standalone: true }" appendTo="body" [pt]="{ panel: 'right-0! left-auto!' }" />
+        </div>
+      </div>
+
+      <div class="relative w-full">
+        <p-floatlabel variant="in">
+          <input id="icon" formControlName="icon" pInputText fluid readonly />
+          <label for="icon">Icon</label>
+        </p-floatlabel>
+        @if (categoryForm.get('icon')?.value) {
+        <p-button class="absolute right-2 top-1/2 -translate-y-1/2" icon="pi pi-times" text severity="secondary"
+          size="small" pTooltip="Clear icon" (click)="clearIcon()" />
+        }
+      </div>
+    </div>
+
+    <div class="flex justify-center">
+      <div
+        class="grid place-items-center size-32 rounded-lg border border-primary-200 dark:border-primary-700 bg-primary-50 dark:bg-primary-800">
+        @if (selectedIcon(); as icon) {
+        <div class="grid place-items-center size-24 rounded-lg"
+          [style.background]="tintColor(categoryForm.get('color')?.value)">
+          <fa-icon [icon]="icon" class="text-4xl" [style.color]="categoryForm.get('color')?.value"></fa-icon>
+        </div>
+        } @else if (categoryForm.get('image')?.value) {
+        <img [src]="categoryForm.get('image')?.value" class="size-24 object-cover rounded-lg" />
+        } @else {
+        <img [src]="defaultIcon()" class="size-24 object-cover rounded-lg" />
+        }
       </div>
     </div>
   </div>
 
-  <input type="file" accept="image/*" #fileInput class="hidden" (change)="onFileSelected($event)" />
-  <div class="flex justify-center">
-    <div class="relative group cursor-pointer" (click)="fileInput.click()">
-      @if (categoryForm.get('image')?.value) {
-      <img [src]="categoryForm.get('image')?.value"
-        class="max-h-32 object-cover rounded-lg transition-transform duration-300" />
-      } @else {
-      <img src="/favicon.png" class="object-cover rounded-lg transition-transform duration-300" />
+  <div class="space-y-2">
+    <div class="text-xs font-semibold uppercase tracking-wide text-primary-500 dark:text-primary-400">Choose icon</div>
+    <div class="max-h-72 overflow-y-auto rounded-lg border border-primary-200 dark:border-primary-700 p-2">
+    <div class="grid grid-cols-5 sm:grid-cols-7 md:grid-cols-9 gap-2">
+      @for (option of iconOptions; track option.value) {
+      <button type="button" (click)="selectIcon(option.value)" [title]="option.label"
+        class="grid size-10 cursor-pointer place-items-center rounded border transition-colors"
+        [class]="
+          categoryForm.get('icon')?.value === option.value
+            ? 'border-primary-500 bg-primary-100 text-primary-900 dark:bg-primary-700 dark:text-white'
+            : 'border-primary-200 bg-white text-primary-600 hover:bg-primary-50 dark:border-primary-700 dark:bg-primary-800 dark:text-primary-300 dark:hover:bg-primary-700'
+        ">
+        <fa-icon [icon]="option.icon"></fa-icon>
+      </button>
       }
-      <div
-        class="absolute inset-0 bg-black/50 rounded-lg flex flex-col gap-4 items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-        <span class="text-sm text-primary-300">Click to edit</span><i class="pi pi-upload text-white"></i>
-      </div>
+    </div>
     </div>
   </div>
 </div>

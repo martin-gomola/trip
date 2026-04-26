@@ -1,0 +1,31 @@
+# Environment files contain secrets.
+.env
+*.env
+!.env.example
+!*.env.example
+
+# Runtime storage and backups do not belong in the app repo.
+storage/
+data/
+volumes/
+backup-*.tar.gz
+*.backup
+backups/
+
+# Local runtime/cache.
+__pycache__/
+*.pyc
+.cache/
+.venv/
+.venv*/
+node_modules/
+
+# OS/editor noise.
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+tmp

@@ -144,7 +144,14 @@ def read_trip(
 def create_trip(
     trip: TripCreate, session: SessionDep, current_user: Annotated[str, Depends(get_current_username)]
 ) -> TripReadBase:
-    new_trip = Trip(name=trip.name, currency=trip.currency, user=current_user)
+    new_trip = Trip(
+        name=trip.name,
+        currency=trip.currency,
+        home_name=trip.home_name,
+        home_lat=trip.home_lat,
+        home_lng=trip.home_lng,
+        user=current_user,
+    )
 
     filename = None
     if trip.image:

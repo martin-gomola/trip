@@ -1,9 +1,14 @@
 from datetime import UTC, datetime, timedelta
+import warnings
 
 import jwt
 import pyotp
 from argon2 import PasswordHasher
 from argon2 import exceptions as argon_exceptions
+from authlib.deprecate import AuthlibDeprecationWarning
+
+warnings.filterwarnings("ignore", category=AuthlibDeprecationWarning, module="authlib._joserfc_helpers")
+
 from authlib.integrations.httpx_client import OAuth2Client
 from fastapi import HTTPException
 from sqlmodel import Session, select

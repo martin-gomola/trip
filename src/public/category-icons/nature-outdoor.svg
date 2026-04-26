@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Nature and outdoor">
+  <rect width="64" height="64" rx="16" fill="#DCFCE7"/>
+  <path d="M8 49h48L42 27 32 41l-8-11L8 49Z" fill="#86EFAC" stroke="#15803D" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M42 27 37 34M24 30l5 7" fill="none" stroke="#15803D" stroke-width="4" stroke-linecap="round"/>
+  <path d="M46 19c0 6-4 10-10 10 0-6 4-10 10-10Z" fill="#22C55E" stroke="#15803D" stroke-width="4" stroke-linejoin="round"/>
+</svg>

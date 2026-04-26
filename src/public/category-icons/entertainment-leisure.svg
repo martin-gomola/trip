@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Entertainment and leisure">
+  <rect width="64" height="64" rx="16" fill="#FCE7F3"/>
+  <path d="M21 20h29v24a7 7 0 0 1-14 0V20Z" fill="#F9A8D4" stroke="#BE185D" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M14 27h26v17a7 7 0 0 1-13 4 7 7 0 0 1-13-4V27Z" fill="#FBCFE8" stroke="#BE185D" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M21 36h4M31 36h4M25 45c3 3 7 3 10 0M38 29h4M45 29h1" fill="none" stroke="#BE185D" stroke-width="3" stroke-linecap="round"/>
+</svg>

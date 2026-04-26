@@ -48,6 +48,32 @@ def _prefix_assets_url(filename: str) -> str:
     return base + filename
 
 
+_DEFAULT_CATEGORY_STYLES = {
+    "accommodation": {"color": "#2563EB", "icon": "/category-icons/accommodation.svg"},
+    "adventure-sports": {"color": "#DC2626", "icon": "/category-icons/adventure-sports.svg"},
+    "culture": {"color": "#7C3AED", "icon": "/category-icons/culture.svg"},
+    "entertainment-leisure": {"color": "#DB2777", "icon": "/category-icons/entertainment-leisure.svg"},
+    "festival-event": {"color": "#F97316", "icon": "/category-icons/festival-event.svg"},
+    "food-drink": {"color": "#EA580C", "icon": "/category-icons/food-drink.svg"},
+    "nature-outdoor": {"color": "#16A34A", "icon": "/category-icons/nature-outdoor.svg"},
+    "wellness": {"color": "#0F766E", "icon": "/category-icons/wellness.svg"},
+}
+
+
+def _category_style_key(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
+def _default_category_icon(name: str) -> str:
+    style = _DEFAULT_CATEGORY_STYLES.get(_category_style_key(name))
+    return style["icon"] if style else "/category-icons/default.svg"
+
+
+def _default_category_color(name: str) -> str:
+    style = _DEFAULT_CATEGORY_STYLES.get(_category_style_key(name))
+    return style["color"] if style else "#64748B"
+
+
 class TripItemStatusEnum(str, Enum):
     PENDING = "pending"
     CONFIRMED = "booked"
@@ -129,6 +155,7 @@ class ProviderPlaceResult(BaseModel):
     price: float | None = None
     allowdog: bool | None = None
     description: str | None = None
+    url: str | None = None
     types: list[str] = []
     image: str | None = None
     restroom: bool | None
@@ -413,6 +440,7 @@ class AdminUserRead(UserBase):
 class CategoryBase(SQLModel):
     name: str
     color: str | None = None
+    icon: str | None = None
 
 
 class Category(CategoryBase, table=True):
@@ -427,12 +455,14 @@ class CategoryCreate(CategoryBase):
     name: str
     image: str | None = None
     color: str | None = None
+    icon: str | None = None
 
 
 class CategoryUpdate(CategoryBase):
     name: str | None = None
     image: str | None = None
     color: str | None = None
+    icon: str | None = None
 
 
 class CategoryRead(CategoryBase):
@@ -447,8 +477,9 @@ class CategoryRead(CategoryBase):
             id=obj.id,
             name=obj.name,
             image_id=obj.image_id,
-            image=_prefix_assets_url(obj.image.filename) if obj.image else "/favicon.png",
-            color=obj.color if obj.color else "#000000",
+            image=_prefix_assets_url(obj.image.filename) if obj.image else _default_category_icon(obj.name),
+            color=obj.color if obj.color else _default_category_color(obj.name),
+            icon=obj.icon,
         )
 
 
@@ -466,6 +497,7 @@ class PlaceBase(SQLModel):
     description: str | None = None
     price: float | None = None
     duration: int | None = None
+    url: str | None = None
     favorite: bool | None = None
     visited: bool | None = None
     gpx: str | None = None
@@ -530,6 +562,7 @@ class PlaceRead(PlaceBase):
             description=obj.description,
             price=obj.price,
             duration=obj.duration,
+            url=obj.url,
             visited=obj.visited,
             image=_prefix_assets_url(obj.image.filename) if obj.image else None,
             image_id=obj.image_id,
@@ -547,6 +580,9 @@ class TripBase(SQLModel):
     currency: str | None = get_settings().DEFAULT_CURRENCY
     notes: str | None = None
     archival_review: str | None = None
+    home_name: str | None = None
+    home_lat: float | None = None
+    home_lng: float | None = None
 
 
 class Trip(TripBase, table=True):
@@ -594,6 +630,9 @@ class TripReadBase(TripBase):
             id=obj.id,
             name=obj.name,
             archived=obj.archived,
+            home_name=obj.home_name,
+            home_lat=obj.home_lat,
+            home_lng=obj.home_lng,
             image=_prefix_assets_url(obj.image.filename) if obj.image else None,
             image_id=obj.image_id,
             days=len(obj.days),
@@ -618,6 +657,9 @@ class TripRead(TripBase):
             id=obj.id,
             name=obj.name,
             archived=obj.archived,
+            home_name=obj.home_name,
+            home_lat=obj.home_lat,
+            home_lng=obj.home_lng,
             image=_prefix_assets_url(obj.image.filename) if obj.image else None,
             image_id=obj.image_id,
             days=[TripDayRead.serialize(day) for day in obj.days],
