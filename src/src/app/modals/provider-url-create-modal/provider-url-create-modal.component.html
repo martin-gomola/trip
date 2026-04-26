@@ -1,0 +1,15 @@
+<section class="space-y-3">
+  <p-floatlabel variant="in">
+    <input id="provider-url" [formControl]="urlInput" pInputText autofocus fluid (keydown.enter)="closeDialog()" />
+    <label for="provider-url">Google Maps Shared List URL</label>
+  </p-floatlabel>
+
+  <div class="flex items-center gap-2 text-xs text-primary-500 dark:text-primary-400">
+    <i class="pi pi-info-circle"></i>
+    <span>Paste a shared Google Maps list link</span>
+  </div>
+
+  <div class="mt-4 text-right">
+    <p-button (click)="closeDialog()" text [disabled]="!urlInput.value.trim()" label="Import" />
+  </div>
+</section>

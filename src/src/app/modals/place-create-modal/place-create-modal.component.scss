@@ -15,6 +15,15 @@
   color: var(--p-inputtext-placeholder-color) !important;
 }
 
+:host ::ng-deep .p-inputnumber {
+  width: 100%;
+}
+
+:host ::ng-deep .p-inputnumber-input {
+  width: 100%;
+  min-width: 0;
+}
+
 svg {
   width: 2rem;
   animation: loading-rotate 1.5s linear infinite;

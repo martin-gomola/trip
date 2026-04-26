@@ -10,6 +10,7 @@ import { DatePickerModule } from 'primeng/datepicker';
 import { ApiService } from '../../services/api.service';
 import { take } from 'rxjs';
 import { checkAndParseLatLng, formatLatLng } from '../../shared/latlng-parser';
+import { UtilsService } from '../../services/utils.service';
 
 @Component({
   selector: 'app-trip-create-modal',
@@ -35,6 +36,7 @@ export class TripCreateModalComponent {
     private fb: FormBuilder,
     private config: DynamicDialogConfig,
     private apiService: ApiService,
+    private utilsService: UtilsService,
   ) {
     this.tripForm = this.fb.group({
       id: -1,
@@ -75,6 +77,15 @@ export class TripCreateModalComponent {
     }
 
     this.tripForm
+      .get('home_name')
+      ?.valueChanges.pipe(takeUntilDestroyed())
+      .subscribe({
+        next: (value: string) => {
+          this.parseHomeMapsUrl(value);
+        },
+      });
+
+    this.tripForm
       .get('home_lat')
       ?.valueChanges.pipe(takeUntilDestroyed())
       .subscribe({
@@ -93,6 +104,70 @@ export class TripCreateModalComponent {
           lngControl?.updateValueAndValidity();
         },
       });
+  }
+
+  onHomeLinkPaste(event: ClipboardEvent) {
+    const value = event.clipboardData?.getData('text')?.trim();
+    if (!value) return;
+    if (!this.isGoogleMapsLink(value)) return;
+
+    event.preventDefault();
+    this.tripForm.get('home_name')?.setValue(value, { emitEvent: false });
+    this.tripForm.get('home_name')?.markAsDirty();
+    this.parseHomeMapsUrl(value);
+  }
+
+  parseHomeMapsUrl(value: string | null) {
+    if (!value) return;
+    const trimmed = value.trim();
+
+    if (/^(https?:\/\/)?(www\.)?google\.[a-z.]+\/maps/.test(trimmed)) {
+      this.parseGoogleMapsPlaceUrl(trimmed);
+      return;
+    }
+
+    const shortLinkId = this.utilsService.parseGoogleMapsShortUrl(trimmed);
+    if (shortLinkId) this.parseGoogleMapsShortUrl(shortLinkId);
+  }
+
+  private isGoogleMapsLink(value: string) {
+    const trimmed = value.trim();
+    return /^(https?:\/\/)?(www\.)?google\.[a-z.]+\/maps/.test(trimmed) || !!this.utilsService.parseGoogleMapsShortUrl(trimmed);
+  }
+
+  private parseGoogleMapsPlaceUrl(url: string): void {
+    const [place, latlng] = this.utilsService.parseGoogleMapsPlaceUrl(url);
+    if (!place || !latlng) return;
+    const [lat, lng] = latlng.split(',');
+    this.setHome(place, lat, lng);
+  }
+
+  private parseGoogleMapsShortUrl(id: string) {
+    this.utilsService.setLoading('Querying Google Maps API...');
+    this.apiService
+      .completionGoogleShortlink(id)
+      .pipe(take(1))
+      .subscribe({
+        next: (result) => {
+          this.utilsService.setLoading('');
+          this.setHome(result.name || 'Home', formatLatLng(result.lat), formatLatLng(result.lng));
+        },
+        error: () => {
+          this.utilsService.setLoading('');
+          this.utilsService.toast('error', 'Error', 'Could not parse maps.app.goo.gl identifier');
+        },
+      });
+  }
+
+  private setHome(name: string, lat: string, lng: string) {
+    this.tripForm.get('home_name')?.setValue(name, { emitEvent: false });
+    this.tripForm.get('home_lat')?.setValue(lat, { emitEvent: false });
+    this.tripForm.get('home_lng')?.setValue(lng, { emitEvent: false });
+    this.tripForm.get('home_name')?.markAsDirty();
+    this.tripForm.get('home_lat')?.markAsDirty();
+    this.tripForm.get('home_lng')?.markAsDirty();
+    this.tripForm.get('home_lat')?.updateValueAndValidity();
+    this.tripForm.get('home_lng')?.updateValueAndValidity();
   }
 
   closeDialog() {

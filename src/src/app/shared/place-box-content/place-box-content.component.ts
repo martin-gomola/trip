@@ -36,6 +36,7 @@ export class PlaceBoxContentComponent implements OnChanges {
   @Output() flyToEmitter = new EventEmitter<void>();
 
   menuItems: MenuItem[] = [];
+  secondaryMenuItems: MenuItem[] = [];
   readonly currency$: Observable<string>;
 
   constructor(private utilsService: UtilsService) {
@@ -50,6 +51,12 @@ export class PlaceBoxContentComponent implements OnChanges {
   buildMenu() {
     const externalUrl = this.resolveExternalUrl();
     this.externalUrl.set(externalUrl);
+
+    if (!this.selectedPlace) {
+      this.menuItems = [];
+      this.secondaryMenuItems = [];
+      return;
+    }
 
     const items = [
       {
@@ -90,7 +97,7 @@ export class PlaceBoxContentComponent implements OnChanges {
 
     if (externalUrl) {
       items.splice(4, 0, {
-        label: 'Open URL',
+        label: 'Open source',
         icon: 'pi pi-external-link',
         command: () => this.openUrl(),
       });
@@ -107,10 +114,42 @@ export class PlaceBoxContentComponent implements OnChanges {
       });
     }
 
+    const secondaryItems = [
+      {
+        label: this.selectedPlace.visited ? 'Mark not visited' : 'Mark visited',
+        icon: this.selectedPlace.visited ? 'pi pi-eye-slash' : 'pi pi-check',
+        iconClass: 'text-green-500!',
+        command: () => this.visitPlace(),
+      },
+      {
+        label: 'Delete',
+        icon: 'pi pi-trash',
+        iconClass: 'text-red-500!',
+        command: () => this.deletePlace(),
+      },
+    ];
+
+    if (this.selectedPlace.gpx) {
+      secondaryItems.unshift({
+        label: 'Display GPX',
+        icon: 'pi pi-compass',
+        iconClass: 'text-primary-500!',
+        command: () => {
+          this.displayGPX();
+        },
+      });
+    }
+
     this.menuItems = [
       {
         label: 'Place',
         items: items,
+      },
+    ];
+    this.secondaryMenuItems = [
+      {
+        label: 'More',
+        items: secondaryItems,
       },
     ];
   }
@@ -160,6 +199,10 @@ export class PlaceBoxContentComponent implements OnChanges {
 
   flyToPlace() {
     this.flyToEmitter.emit();
+  }
+
+  isAccommodation() {
+    return this.selectedPlace?.category?.name?.toLowerCase() === 'accommodation';
   }
 
   close() {

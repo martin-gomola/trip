@@ -22,6 +22,11 @@ convention = {
 
 SQLModel.metadata = MetaData(naming_convention=convention)
 
+TimeString = Annotated[
+    str,
+    StringConstraints(min_length=2, max_length=5, pattern=r"^([01]\d|2[0-3])(:[0-5]\d)?$"),
+]
+
 
 @event.listens_for(Session, "after_commit")
 def cleanup_after_commit(session):
@@ -497,6 +502,8 @@ class PlaceBase(SQLModel):
     description: str | None = None
     price: float | None = None
     duration: int | None = None
+    checkin_time: TimeString | None = None
+    checkout_time: TimeString | None = None
     url: str | None = None
     favorite: bool | None = None
     visited: bool | None = None
@@ -562,6 +569,8 @@ class PlaceRead(PlaceBase):
             description=obj.description,
             price=obj.price,
             duration=obj.duration,
+            checkin_time=obj.checkin_time,
+            checkout_time=obj.checkout_time,
             url=obj.url,
             visited=obj.visited,
             image=_prefix_assets_url(obj.image.filename) if obj.image else None,
@@ -749,10 +758,7 @@ class TripItemAttachmentLink(SQLModel, table=True):
 
 
 class TripItemBase(SQLModel):
-    time: Annotated[
-        str,
-        StringConstraints(min_length=2, max_length=5, pattern=r"^([01]\d|2[0-3])(:[0-5]\d)?$"),
-    ]
+    time: TimeString
     text: str
     comment: str | None = None
     lat: float | None = None
@@ -760,6 +766,8 @@ class TripItemBase(SQLModel):
     lng: float | None = None
     status: TripItemStatusEnum | None = None
     gpx: str | None = None
+    stay_checkout_day_id: int | None = None
+    stay_checkout_time: TimeString | None = None
 
     @field_validator("time", mode="before")
     def pad_mm_if_needed(cls, value: str) -> str:
@@ -833,6 +841,8 @@ class TripItemRead(TripItemBase):
             image_id=obj.image_id,
             gpx=obj.gpx,
             paid_by=obj.paid_by,
+            stay_checkout_day_id=obj.stay_checkout_day_id,
+            stay_checkout_time=obj.stay_checkout_time,
             attachments=[TripAttachmentRead.serialize(att) for att in obj.attachments],
         )
 
@@ -881,6 +891,8 @@ class TripShareItemRead(TripItemBase):
             image_id=None,
             gpx=obj.gpx,
             paid_by=None,
+            stay_checkout_day_id=obj.stay_checkout_day_id,
+            stay_checkout_time=obj.stay_checkout_time,
         )
 
 

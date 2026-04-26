@@ -380,6 +380,10 @@ export class ApiService {
     return this.httpClient.post<ProviderPlaceResult[]>(`${this.apiBaseUrl}/completions/mymaps-import`, formdata);
   }
 
+  completionGoogleList(url: string): Observable<ProviderPlaceResult[]> {
+    return this.httpClient.post<ProviderPlaceResult[]>(`${this.apiBaseUrl}/completions/google-list-import`, { url });
+  }
+
   completionGoogleShortlink(id: string): Observable<ProviderPlaceResult> {
     return this.httpClient.get<ProviderPlaceResult>(`${this.apiBaseUrl}/completions/google/resolve-shortlink/${id}`);
   }

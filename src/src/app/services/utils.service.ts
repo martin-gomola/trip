@@ -76,7 +76,7 @@ export class UtilsService {
 
   parseGoogleMapsShortUrl(url: string) {
     // Look maps.app.goo.gl/<id>/
-    const shortLinkMatch = url.match(/^https:\/\/maps.app.goo.gl\/([^?]+)/);
+    const shortLinkMatch = url.trim().match(/^(?:https?:\/\/)?maps\.app\.goo\.gl\/([^/?#]+)/);
     if (!shortLinkMatch) return null;
     return shortLinkMatch[1];
   }

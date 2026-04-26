@@ -40,6 +40,8 @@ async def create_place(
         description=place.description,
         price=place.price,
         duration=place.duration,
+        checkin_time=place.checkin_time,
+        checkout_time=place.checkout_time,
         url=place.url,
         category_id=place.category_id,
         visited=place.visited,

@@ -74,6 +74,7 @@ import { TotpVerifyModalComponent } from '../../modals/totp-verify-modal/totp-ve
 import { MenuModule } from 'primeng/menu';
 import { MultiPlacesCreateModalComponent } from '../../modals/multi-places-create-modal/multi-places-create-modal.component';
 import { ProviderMultilineCreateModalComponent } from '../../modals/provider-multiline-create-modal/provider-multiline-create-modal.component';
+import { ProviderUrlCreateModalComponent } from '../../modals/provider-url-create-modal/provider-url-create-modal.component';
 import { UpdatePasswordModalComponent } from '../../modals/update-password-modal/update-password-modal.component';
 import { SettingsViewTokenComponent } from '../../modals/settings-view-token/settings-view-token.component';
 import { Trip } from '../../types/trip';
@@ -281,6 +282,11 @@ export class DashboardComponent implements OnInit, AfterViewInit {
             }
             this.fileUploadTakeout()?.nativeElement.click();
           },
+        },
+        {
+          label: 'Google List (Shared)',
+          icon: 'pi pi-google',
+          command: () => this.openGoogleListModal(),
         },
         {
           label: 'Bulk',
@@ -1749,6 +1755,50 @@ export class DashboardComponent implements OnInit, AfterViewInit {
               this.utilsService.setLoading('');
               if (!places.length) {
                 this.utilsService.toast('warn', 'No result', 'Provider API did not return any place');
+                return;
+              }
+
+              this.multiPlaceModal(places);
+            },
+            error: () => this.utilsService.setLoading(''),
+          });
+      },
+    });
+  }
+
+  openGoogleListModal() {
+    if (!this.settings()?.google_apikey) {
+      this.utilsService.toast('error', 'Missing Key', 'Google Maps API key not configured');
+      return;
+    }
+
+    const modal: DynamicDialogRef = this.dialogService.open(ProviderUrlCreateModalComponent, {
+      header: 'Import Google List',
+      modal: true,
+      appendTo: 'body',
+      closable: true,
+      dismissableMask: false,
+      draggable: false,
+      width: '50vw',
+      breakpoints: {
+        '960px': '75vw',
+        '640px': '90vw',
+      },
+    })!;
+
+    modal.onClose.pipe(take(1)).subscribe({
+      next: (url: string | null) => {
+        if (!url) return;
+
+        this.utilsService.setLoading('Importing Google list...');
+        this.apiService
+          .completionGoogleList(url)
+          .pipe(take(1))
+          .subscribe({
+            next: (places) => {
+              this.utilsService.setLoading('');
+              if (!places.length) {
+                this.utilsService.toast('warn', 'No result', 'Google list did not return any place');
                 return;
               }
 

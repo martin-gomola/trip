@@ -71,6 +71,8 @@ export interface TripItem {
   gpx?: string;
   paid_by?: string;
   attachments?: TripAttachment[];
+  stay_checkout_day_id?: number | null;
+  stay_checkout_time?: string | null;
 }
 
 export interface TripStatus {
@@ -98,6 +100,8 @@ export interface FlattenedTripItem {
   gpx?: string;
   paid_by?: string;
   attachments?: TripAttachment[];
+  stay_checkout_day_id?: number | null;
+  stay_checkout_time?: string | null;
 }
 
 export interface TripMember {
@@ -144,6 +148,15 @@ export interface PrintOptions {
 export interface ViewTripItem extends TripItem {
   status?: TripStatus;
   distance?: number;
+  eta?: string;
+  travelDuration?: string;
+  isHome?: boolean;
+  isVirtualStay?: boolean;
+  isVirtualCheckout?: boolean;
+  sourceItemId?: number;
+  checkinTime?: string;
+  checkoutTime?: string;
+  earlyArrivalMinutes?: number;
 }
 
 export interface DayViewModel {
@@ -162,4 +175,12 @@ export interface HighlightData {
   gpxData: string[];
   bounds: [number, number][];
   activePlaceIds?: Set<number>;
+}
+
+export interface TripRetimingChange {
+  item: ViewTripItem;
+  oldTime: string;
+  newTime: string;
+  travelDuration: string;
+  distance?: number;
 }

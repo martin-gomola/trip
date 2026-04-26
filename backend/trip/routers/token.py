@@ -40,6 +40,8 @@ async def token_create_place(
         description=place.description,
         price=place.price,
         duration=place.duration,
+        checkin_time=place.checkin_time,
+        checkout_time=place.checkout_time,
         url=place.url,
         category_id=category.id,
         user=current_user,

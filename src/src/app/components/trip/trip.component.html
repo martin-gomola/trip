@@ -277,6 +277,10 @@
                   group.stats.cost | number: '1.0-0' }} {{ trip()?.currency }}
                 </span>
                 }
+                @if (canRetimeDay(group.day)) {
+                <p-button icon="pi pi-refresh" [disabled]="trip()?.archived" (click)="retimeDay(group.day); $event.stopPropagation()"
+                  text size="small" pTooltip="Recalculate times" />
+                }
                 <p-button icon="pi pi-ellipsis-h"
                   (click)="openMenuPlanDayActionsItems($event, group.day); $event.stopPropagation()" text
                   size="small" />
@@ -287,9 +291,12 @@
               @for (item of group.items; track item.id) {
               <div
                 class="group relative rounded-s-lg md:rounded-lg bg-white dark:bg-primary-900 border-s border-y md:border-x border-primary-200 dark:border-primary-700 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-sm transition-all cursor-pointer"
+                [class.cursor-default]="item.isVirtualStay || item.isVirtualCheckout"
                 [class.ring-2]="isMultiSelectMode() && selectedItemIds().has(item.id)"
                 [class.ring-primary-500]="isMultiSelectMode() && selectedItemIds().has(item.id)"
-                (click)="onRowClick(item)" (mouseenter)="onRowEnter(item)" (mouseleave)="onRowLeave()">
+                (click)="item.isVirtualStay || item.isVirtualCheckout ? null : onRowClick(item)"
+                (mouseenter)="item.isVirtualStay || item.isVirtualCheckout ? null : onRowEnter(item)"
+                (mouseleave)="item.isVirtualStay || item.isVirtualCheckout ? null : onRowLeave()">
                 <div class="flex items-center gap-3 p-3 min-w-0 border-primary-500 rounded-s" [class]="
                           (selectedItem()?.id === item.id ||
                             selectedPlaceItems()[selectedPlaceActiveTabIndex()]?.id === item.id) &&
@@ -302,15 +309,41 @@
                     <span class="absolute -top-1 -right-1 w-3 h-3 rounded-full"
                       [style.background]="item.status.color"></span>
                     }
+                    @if (item.isVirtualStay) {
+                    <span
+                      class="inline-flex items-center gap-1 px-2.5 py-1 text-xs sm:text-sm font-medium bg-primary-100 dark:bg-primary-800 text-primary-700 dark:text-primary-300 rounded whitespace-nowrap">
+                      <i class="pi pi-building text-xs"></i>
+                      Stay
+                    </span>
+                    } @else {
                     <span
                       class="px-2.5 py-1 text-xs sm:text-sm font-mono font-medium bg-primary-100 dark:bg-primary-800 text-primary-700 dark:text-primary-300 rounded whitespace-nowrap">
                       {{ item.time }}
                     </span>
+                    }
                   </div>
 
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 min-w-0">
-                      @if (item.place && visibleProps.has('place')) {
+                      @if (item.isVirtualStay) {
+                      <div
+                        class="flex items-center gap-2 px-2.5 py-1 min-w-0 rounded-lg bg-primary-100 text-primary-700 dark:bg-primary-800 dark:text-primary-200">
+                        <i class="pi pi-moon text-xs shrink-0"></i>
+                        <span class="text-sm font-medium truncate">{{ item.text }}</span>
+                      </div>
+                      } @else if (item.isVirtualCheckout) {
+                      <div
+                        class="flex items-center gap-2 px-2.5 py-1 min-w-0 rounded-lg bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+                        <i class="pi pi-sign-out text-xs shrink-0"></i>
+                        <span class="text-sm font-medium truncate">{{ item.text }}</span>
+                      </div>
+                      } @else if (item.isHome && visibleProps.has('place')) {
+                      <div
+                        class="flex items-center gap-2 px-2.5 py-1 min-w-0 rounded-lg bg-primary-950 text-white dark:bg-primary-100 dark:text-primary-950">
+                        <i class="pi pi-home text-xs shrink-0"></i>
+                        <span class="text-sm font-medium truncate">{{ item.text || 'Home' }}</span>
+                      </div>
+                      } @else if (item.place && visibleProps.has('place')) {
                       @if (isTextAndPlaceToggled()) {
                       <div class="flex flex-row items-center justify-between gap-2 min-w-0 w-full">
                         @if (item.text !== item.place.name) {
@@ -348,6 +381,26 @@
                       }
                     </div>
 
+                    @if (!item.isVirtualStay && (item.eta || item.travelDuration || item.checkinTime) && visibleProps.has('distance')) {
+                    <p class="mt-1 flex items-center gap-1.5 text-xs text-primary-500 dark:text-primary-400">
+                      <i class="pi pi-clock text-[10px]"></i>
+                      @if (item.eta) {
+                      <span>ETA {{ item.eta }}</span>
+                      }
+                      @if (item.travelDuration) {
+                      <span class="text-primary-300 dark:text-primary-700">•</span>
+                      <span>{{ item.travelDuration }} travel</span>
+                      }
+                      @if (item.checkinTime && isAccommodationPlace(item.place) && !item.isVirtualCheckout && !item.isVirtualStay) {
+                      <span class="text-primary-300 dark:text-primary-700">•</span>
+                      <span>{{ item.checkinTime === item.time ? 'Check-in' : 'Check-in from' }} {{ item.checkinTime }}</span>
+                      }
+                      @if (item.earlyArrivalMinutes) {
+                      <span class="text-amber-600 dark:text-amber-300">• Arrives {{ formatDurationMinutes(item.earlyArrivalMinutes) }} early</span>
+                      }
+                    </p>
+                    }
+
                     @if (item.comment && visibleProps.has('comment')) {
                     <p class="mt-1 text-xs text-primary-500 dark:text-primary-400 line-clamp-1 whitespace-pre-wrap">{{
                       item.comment }}
@@ -363,7 +416,7 @@
                       [title]="coords">{{ coords }}</span>
                     }
 
-                    @if (item.price && visibleProps.has('price')) {
+                    @if (item.price && visibleProps.has('price') && !item.isVirtualStay && !item.isVirtualCheckout) {
                     @let width = panelWidth();
                     <span
                       class="flex items-center bg-primary-100 dark:bg-primary-800 text-primary-900 dark:text-white px-2 py-1 text-xs font-medium rounded-md whitespace-nowrap">
@@ -390,15 +443,41 @@
                     }
                   </div>
 
+                  @if (!item.isVirtualStay && !item.isVirtualCheckout) {
                   <i
                     class="pi pi-chevron-right absolute top-1/2 -translate-y-1/2 right-1 bg-primary-100 dark:bg-primary-800 p-1 rounded text-xs opacity-0 group-hover:opacity-100 group-hover:-translate-x-2 transition-all"></i>
+                  }
                 </div>
               </div>
               } @empty {
               <div class="flex flex-col items-center justify-center py-4">
                 <h3 class="text-lg font-semibold text-primary-900 dark:text-white mb-2">No plans yet</h3>
-                <p-button icon="pi pi-plus" text size="small" label="Add Item" [disabled]="trip()?.archived"
-                  (click)="addItem(group.day.id)" />
+                <div class="flex flex-wrap items-center justify-center gap-2">
+                  <p-button icon="pi pi-plus" text size="small" label="Add Item" [disabled]="trip()?.archived"
+                    (click)="addItem(group.day.id)" />
+                  @if (tripHomeCoordinate()) {
+                  <p-button icon="pi pi-home" text size="small" label="Add Home" [disabled]="trip()?.archived"
+                    (click)="addHomeItem(group.day.id)" />
+                  }
+                </div>
+              </div>
+              }
+
+              @if (group.items.length > 0 && !dayHasRealItems(group)) {
+              <div
+                class="mt-2 flex flex-col items-center justify-center rounded-lg border border-dashed border-primary-200 bg-white/70 px-3 py-4 text-center dark:border-primary-700 dark:bg-primary-900/70">
+                <h3 class="text-sm font-semibold text-primary-900 dark:text-white">No real plans yet</h3>
+                <p class="mt-1 text-xs text-primary-500 dark:text-primary-400">
+                  Stay and checkout rows are only route anchors. Add a stop or home departure for this day.
+                </p>
+                <div class="mt-2 flex flex-wrap items-center justify-center gap-2">
+                  <p-button icon="pi pi-plus" text size="small" label="Add Item" [disabled]="trip()?.archived"
+                    (click)="addItem(group.day.id)" />
+                  @if (tripHomeCoordinate()) {
+                  <p-button icon="pi pi-home" text size="small" label="Add Home" [disabled]="trip()?.archived"
+                    (click)="addHomeItem(group.day.id)" />
+                  }
+                </div>
               </div>
               }
             </div>
@@ -1416,142 +1495,137 @@
 
 @if (printOptions()) {
 @let options = printOptions();
-<section class="hidden print:block">
-  <div class="flex items-center justify-center">
-    <div class="flex flex-col items-center max-w-[55vw] md:max-w-full">
-      <h1 class="tracking-tight text-3xl font-semibold truncate p-2">{{ trip()?.name }}</h1>
-      @if (options?.metadata) {
-      <div class="flex items-center">
-        <span
-          class="bg-primary-100 text-primary-800 text-xs font-medium me-2 px-2.5 py-1 rounded min-w-fit flex items-center gap-2"><i
-            class="pi pi-calendar text-xs"></i> {{ trip()?.days?.length }}
-          {{ trip()?.days!.length > 1 ? 'days' : 'day' }}</span>
-        <span
-          class="bg-primary-100 text-primary-800 text-xs font-medium me-2 px-2.5 py-1 rounded min-w-fit flex items-center gap-2"><i
-            class="pi pi-wallet text-xs"></i> {{ (totalPrice() | number: '1.0-2') || '-' }}
-          {{ trip()?.currency }}</span>
+<section class="roadbook-print hidden print:block">
+  <div class="roadbook-page roadbook-cover">
+    <div class="roadbook-cover-grid">
+      <div>
+        <p class="roadbook-kicker">TRIP ROADBOOK</p>
+        <h1>{{ trip()?.name }}</h1>
+        @if (options?.metadata) {
+        <p class="roadbook-meta">
+          {{ trip()?.days?.length }} {{ trip()?.days!.length > 1 ? 'dni' : 'deň' }}
+          · rozpočet {{ (totalPrice() | number: '1.0-2') || '-' }} {{ trip()?.currency }}
+        </p>
+        }
       </div>
-      }
+      <div class="roadbook-emergency">
+        <strong>Núdzová mapa</strong>
+        <span>V prípade straty orientácie naskenujte tento kód pre Google Maps offline polohu.</span>
+        <span class="roadbook-qr">QR</span>
+        <small>{{ roadbookEmergencyUrl() }}</small>
+      </div>
     </div>
-  </div>
 
-  @if (options?.notes) {
-  <div class="mt-4">
-    <div class="text-2xl font-semibold">Notes</div>
-
-    <div class="mt-4 border-l-3 border-primary-900 pl-6 py-2">
-      <span class="text-sm leading-relaxed text-primary-800 whitespace-pre-wrap">{{
-        trip()?.notes || 'Nothing there.' }}</span>
+    @if (options?.notes && trip()?.notes) {
+    <div class="roadbook-notes">
+      <strong>Poznámky posádky</strong>
+      <p>{{ trip()?.notes }}</p>
     </div>
-  </div>
-  }
+    }
 
-  <div class="mt-8">
-    <div class="text-2xl font-semibold">Itinerary</div>
-
-    <div class="mt-4">
-      @for (group of tripViewModel(); track group.day.id) {
-      @if (options?.days?.has(group.day.id)) {
-      <div class="mb-12">
-        <div class="flex items-center gap-4 mb-4">
-          <h2 class="text-xl font-semibold text-primary-900 whitespace-nowrap">
-            {{ group.day.label }}
-          </h2>
-          <div class="flex-1 h-px bg-primary-300"></div>
-          @if (group.day.dt) {
-          <span class="text-sm font-medium text-primary-400 whitespace-nowrap">{{
-            group.day.dt | date: 'd MMM, y' }}</span>
+    <div class="roadbook-legend">
+      <h2>Legenda piktogramov</h2>
+      <div class="roadbook-legend-grid">
+        @for (group of roadbookLegendGroups; track group.label) {
+        <div class="roadbook-legend-group">
+          <h3>{{ group.label }}</h3>
+          @for (item of group.items; track item.symbol) {
+          <div class="roadbook-legend-row">
+            <span>{{ item.symbol }}</span>
+            <p>{{ item.description }}</p>
+          </div>
           }
         </div>
-
-        @if (options?.notes && group.day.notes) {
-        <div class="border-l-3 border-primary-900 pl-6 py-2 mb-4">
-          <span class="text-sm leading-relaxed text-primary-800 whitespace-pre-wrap">{{
-            group.day.notes }}
-          </span>
-        </div>
-        }
-
-        @for (item of group.items; track item.id) {
-        <div class="flex gap-4 items-center rounded-lg p-3 -mx-3">
-          <span class="px-2.5 py-1 text-xs font-mono font-medium bg-primary-100 text-primary-700 rounded">{{
-            item.time }}</span>
-
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2">
-              @if (!options?.props?.has('place') || !item.place || item.place.name !== item.text) {
-              <h4 class="font-semibold text-primary-900">{{ item.text }}</h4>
-              }
-              @if (options?.props?.has('place') && item.place) {
-              <div class="w-fit color-bg-opacity flex items-center gap-2 px-2.5 py-1 rounded-lg"
-                [style.--color-bg-opacity]="item.place.category.color">
-                <img [src]="item.place.image || item.place.category.image" class="w-5 h-5 rounded-full object-cover" />
-                <span class="text-sm font-medium text-primary-900 truncate">
-                  {{ item.place.name }}
-                </span>
-              </div>
-              }
-            </div>
-
-            @if (options?.props?.has('comment') && item.comment) {
-            <p class="text-sm text-primary-500 whitespace-pre-wrap italic">{{ item.comment }}</p>
-            }
-          </div>
-
-          <div class="flex items-center">
-            @if (options?.props?.has('latlng') && item.lat && item.lng) {
-            <span class="text-center bg-primary-100 text-primary-800 text-xs px-2 py-1 rounded-md truncate me-2">{{
-              item.lat }}, {{ item.lng }}</span>
-            }
-            @if (options?.props?.has('price') && item.price) {
-            <span
-              class="flex items-center bg-primary-100 text-primary-900 px-2 py-1 text-xs font-medium rounded whitespace-nowrap me-2">{{
-              item.price }} {{ trip()?.currency }}</span>
-            }
-            @if (options?.props?.has('status') && item.status) {
-            <span class="text-xs color-bg-opacity font-medium px-2.5 py-1 rounded min-w-fit"
-              [style.--color-bg-opacity]="item.status.color">{{ item.status.label }}</span>
-            }
-          </div>
-        </div>
-        } @empty {
-        <div class="mt-4 border-l-3 border-primary-900 pl-6 py-2">
-          <p class="text-primary-800 text-lg leading-loose font-light">Nothing there.</p>
-        </div>
         }
       </div>
-      }
-      }
     </div>
   </div>
 
-  @if (options?.places) {
-  <div class="mt-8 break-inside-avoid">
-    <div class="text-2xl font-semibold">📍 Places</div>
-    <div class="mt-4">
-      @for (place of printOptionsPlaces(); track place.id) {
-      <div [style.--color-bg-opacity]="place.category.color"
-        class="inline-flex color-bg-opacity items-center gap-2 font-medium p-1 pr-3 m-1 rounded-lg">
-        <div class="size-6 flex items-center justify-center bg-white rounded-full overflow-hidden shrink-0">
-          <img [src]="place.image" class="size-full object-cover" />
-        </div>
-        <span class="text-sm text-primary-900">{{ place.name }}</span>
+  @for (group of tripViewModel(); track group.day.id) {
+  @if (options?.days?.has(group.day.id)) {
+  <div class="roadbook-page roadbook-day">
+    <div class="roadbook-day-header">
+      <div>
+        <p>Deň</p>
+        <h2>{{ group.day.label }}</h2>
+        @if (group.day.dt) {
+        <span>{{ group.day.dt | date: 'd MMMM y' }}</span>
+        }
       </div>
-      } @empty {
-      <div class="mt-4 border-l-3 border-primary-900 pl-6 py-2">
-        <p class="text-primary-800 text-lg leading-loose font-light">Nothing there.</p>
+      <div class="roadbook-day-stats">
+        <strong>{{ roadbookDayTotal(group) }} km</strong>
+        <span>{{ group.stats.count }} bodov</span>
       </div>
-      }
     </div>
 
-    <div class="mt-4 flex gap-1 justify-end">
-      @for (category of getCategoriesFromPlaces(printOptionsPlaces()); track category.id) {
-      <div [style.--color-bg-opacity]="category.color"
-        class="w-fit color-bg-opacity items-center gap-2 font-medium p-1 px-3 rounded text-sm text-primary-900">{{
-        category.name }}</div>
+    @if (options?.notes && group.day.notes) {
+    <div class="roadbook-day-note">{{ group.day.notes }}</div>
+    }
+
+    <table class="roadbook-table">
+      <thead>
+        <tr>
+          <th colspan="2">Vzdialenosť (km)</th>
+          <th>Navigácia (Tulip)</th>
+          <th colspan="2">Inštrukcie a detaily</th>
+        </tr>
+        <tr>
+          <th>Celková</th>
+          <th>Čiastková</th>
+          <th>Piktogram</th>
+          <th>Názov bodu / smer</th>
+          <th>Doplnkové info a varovania</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of roadbookRows(group); track row.key) {
+        <tr [class.roadbook-warning]="row.warning">
+          <td class="roadbook-total">{{ row.totalKm }}</td>
+          <td class="roadbook-partial">{{ row.partialKm }}</td>
+          <td class="roadbook-symbol">{{ row.symbol }}</td>
+          <td>
+            @if (row.time) {
+            <span class="roadbook-time">{{ row.time }}</span>
+            }
+            {{ row.title }}
+          </td>
+          <td>{{ row.details }}</td>
+        </tr>
+        } @empty {
+        <tr>
+          <td class="roadbook-empty" colspan="5">Bez plánovaných bodov.</td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  }
+  }
+
+  @if (options?.places) {
+  <div class="roadbook-page roadbook-places">
+    <h2>Register miest</h2>
+    <div class="roadbook-place-list">
+      @for (place of printOptionsPlaces(); track place.id) {
+      <div class="roadbook-place">
+        <strong>{{ place.name }}</strong>
+        <span>{{ place.category.name }}</span>
+        @if (place.lat && place.lng) {
+        <small>{{ place.lat }}, {{ place.lng }}</small>
+        }
+      </div>
+      } @empty {
+      <p>Bez miest.</p>
       }
     </div>
   </div>
   }
+
+  <div class="roadbook-footer">
+    <span>[ ] Vynulovaný tripmaster?</span>
+    <span>[ ] Tlak v pneu?</span>
+    <span>[ ] Voda a palivo?</span>
+    <span>[ ] Offline mapy?</span>
+  </div>
 </section>
 }

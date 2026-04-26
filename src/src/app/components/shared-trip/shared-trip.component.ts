@@ -59,6 +59,14 @@ import { MultiSelectModule } from 'primeng/multiselect';
 import { CheckboxModule } from 'primeng/checkbox';
 import { generateTripICSFile } from '../../shared/trip-base/ics';
 import { generateTripCSVFile } from '../../shared/trip-base/csv';
+import {
+  ROADBOOK_LEGEND_GROUPS,
+  RoadbookLegendGroup,
+  RoadbookRow,
+  roadbookDayTotalKm,
+  roadbookEmergencyMapsUrl,
+  roadbookRowsForDay,
+} from '../../shared/trip-base/roadbook';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FileSizePipe } from '../../shared/pipes/filesize.pipe';
 import { computeDistLatLng } from '../../shared/utils';
@@ -418,6 +426,7 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
   selectedTripDayForMenu?: TripDay;
   statuses: TripStatus[];
   availableItemProps = ['place', 'comment', 'latlng', 'price', 'status', 'distance'];
+  roadbookLegendGroups: RoadbookLegendGroup[] = ROADBOOK_LEGEND_GROUPS;
 
   map?: L.Map;
   markerClusterGroup?: L.MarkerClusterGroup;
@@ -943,6 +952,18 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
     const categories = new Map<number, Category>();
     places.forEach((p) => categories.set(p.category.id, p.category));
     return Array.from(categories.values());
+  }
+
+  roadbookRows(group: DayViewModel): RoadbookRow[] {
+    return roadbookRowsForDay(group);
+  }
+
+  roadbookDayTotal(group: DayViewModel): string {
+    return roadbookDayTotalKm(group);
+  }
+
+  roadbookEmergencyUrl(): string {
+    return roadbookEmergencyMapsUrl(this.trip());
   }
 
   resetPlansWidth() {

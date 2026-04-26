@@ -379,6 +379,11 @@ def create_tripitem(
     if not db_day or (db_day.trip_id != trip_id):
         raise HTTPException(status_code=400, detail="Bad request")
 
+    if item.stay_checkout_day_id is not None:
+        checkout_day = session.get(TripDay, item.stay_checkout_day_id)
+        if not checkout_day or checkout_day.trip_id != trip_id:
+            raise HTTPException(status_code=400, detail="Bad request")
+
     new_item = TripItem(
         time=item.time,
         text=item.text,
@@ -388,6 +393,8 @@ def create_tripitem(
         day_id=day_id,
         price=item.price,
         status=item.status,
+        stay_checkout_day_id=item.stay_checkout_day_id,
+        stay_checkout_time=item.stay_checkout_time,
     )
 
     filename = None
@@ -462,6 +469,11 @@ def update_tripitem(
         raise HTTPException(status_code=400, detail="Bad request")
 
     item_data = item.model_dump(exclude_unset=True)
+    if item_data.get("stay_checkout_day_id") is not None:
+        checkout_day = session.get(TripDay, item_data["stay_checkout_day_id"])
+        if not checkout_day or checkout_day.trip_id != trip_id:
+            raise HTTPException(status_code=400, detail="Bad request")
+
     # TODO: Optimize logic; image=data: parse / image=none: remove / no image key: pass
     filename = None
     if "image" in item_data:  # no image key: pass
@@ -493,12 +505,13 @@ def update_tripitem(
                     session.rollback()
                     raise HTTPException(status_code=400, detail="Bad request")
 
-    place_id = item_data.pop("place", None)
-    db_item.place_id = place_id
-    if place_id is not None:
-        place_in_trip = any(p.id == place_id for p in db_trip.places)
-        if not place_in_trip:
-            raise HTTPException(status_code=400, detail="Bad request")
+    if "place" in item_data:
+        place_id = item_data.pop("place")
+        db_item.place_id = place_id
+        if place_id is not None:
+            place_in_trip = any(p.id == place_id for p in db_trip.places)
+            if not place_in_trip:
+                raise HTTPException(status_code=400, detail="Bad request")
 
     if "paid_by" in item_data:
         paid_by = item_data.pop("paid_by")

@@ -24,6 +24,8 @@ export interface Place {
   description?: string;
   url?: string;
   duration?: number;
+  checkin_time?: string;
+  checkout_time?: string;
   allowdog?: boolean;
   visited?: boolean;
   favorite?: boolean;

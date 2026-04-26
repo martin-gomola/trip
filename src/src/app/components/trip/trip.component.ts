@@ -34,6 +34,7 @@ import {
   ViewTripItem,
   DayViewModel,
   HighlightData,
+  TripRetimingChange,
 } from '../../types/trip';
 import { Category, Place } from '../../types/poi';
 import {
@@ -51,7 +52,7 @@ import { DialogService, DynamicDialogRef } from 'primeng/dynamicdialog';
 import { TripPlaceSelectModalComponent } from '../../modals/trip-place-select-modal/trip-place-select-modal.component';
 import { TripCreateDayModalComponent } from '../../modals/trip-create-day-modal/trip-create-day-modal.component';
 import { TripCreateDayItemModalComponent } from '../../modals/trip-create-day-item-modal/trip-create-day-item-modal.component';
-import { debounceTime, distinctUntilChanged, forkJoin, Observable, of, switchMap, take } from 'rxjs';
+import { debounceTime, distinctUntilChanged, forkJoin, map, Observable, of, switchMap, take, tap } from 'rxjs';
 import { YesNoModalComponent } from '../../modals/yes-no-modal/yes-no-modal.component';
 import { UtilsService } from '../../services/utils.service';
 import { TripCreateModalComponent } from '../../modals/trip-create-modal/trip-create-modal.component';
@@ -74,6 +75,14 @@ import { TripNotesModalComponent } from '../../modals/trip-notes-modal/trip-note
 import { TripArchiveModalComponent } from '../../modals/trip-archive-modal/trip-archive-modal.component';
 import { generateTripICSFile } from '../../shared/trip-base/ics';
 import { generateTripCSVFile } from '../../shared/trip-base/csv';
+import {
+  ROADBOOK_LEGEND_GROUPS,
+  RoadbookLegendGroup,
+  RoadbookRow,
+  roadbookDayTotalKm,
+  roadbookEmergencyMapsUrl,
+  roadbookRowsForDay,
+} from '../../shared/trip-base/roadbook';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FileSizePipe } from '../../shared/pipes/filesize.pipe';
 import { computeDistLatLng, daterangeToTripDays } from '../../shared/utils';
@@ -83,6 +92,7 @@ import { TripBulkEditModalComponent } from '../../modals/trip-bulk-edit-modal/tr
 import { PlaceListItemComponent } from '../../shared/place-list-item/place-list-item.component';
 import { RouteManagerService } from '../../services/route-manager.service';
 import { TripPrettyPrintModalComponent } from '../../modals/trip-pretty-print-modal/trip-pretty-print-modal.component';
+import { TripRetimingPreviewModalComponent } from '../../modals/trip-retiming-preview-modal/trip-retiming-preview-modal.component';
 
 const HIGHLIGHT_COLORS = [
   '#e6194b',
@@ -99,6 +109,16 @@ const HIGHLIGHT_COLORS = [
   '#856e93',
   '#7a7a00',
 ];
+
+const HOME_PLACE_ID = -1;
+const ROUTE_ESTIMATE_SPEEDS_KMH = {
+  car: 70,
+  foot: 5,
+};
+const VIRTUAL_ITEM_ID_OFFSET = 1_000_000_000;
+
+type TripItemFormValue = Omit<TripItem, 'place'> & { place?: number | null };
+type NewTripItemFormValue = Omit<TripItemFormValue, 'day_id'> & { day_id: number[] };
 
 @Component({
   selector: 'app-trip',
@@ -153,9 +173,11 @@ export class TripComponent implements AfterViewInit, OnDestroy {
   changeDetectionRef: ChangeDetectorRef;
 
   trip = signal<Trip | null>(null);
+  allPlaces = signal<Place[]>([]);
   tripMembers = signal<TripMember[]>([]);
   packingList = signal<PackingItem[]>([]);
   checklistItems = signal<ChecklistItem[]>([]);
+  routeEstimates = signal<Map<string, { distance: number; duration: number }>>(new Map());
 
   searchQuery = signal<string>('');
   isPlansPanelCollapsed = signal<boolean>(false);
@@ -185,12 +207,23 @@ export class TripComponent implements AfterViewInit, OnDestroy {
   isMembersDialogVisible = false;
   isAttachmentsDialogVisible = false;
   isChecklistDialogVisible = false;
-  selectedItemProps = signal<string[]>(['place', 'comment', 'price']);
+  selectedItemProps = signal<string[]>(['place', 'comment', 'price', 'distance']);
 
   tripSharedDetails$?: Observable<SharedTripDetails>;
   username: string;
 
   places = computed(() => this.trip()?.places ?? []);
+  itemPlaces = computed(() => {
+    const placesById = new Map<number, Place>();
+    for (const place of this.allPlaces()) placesById.set(place.id, place);
+    for (const place of this.places()) placesById.set(place.id, place);
+    return [...placesById.values()].sort((a, b) => a.name.localeCompare(b.name));
+  });
+  itemPlaceOptions = computed(() => {
+    const home = this.tripHomePlaceOption();
+    const places = this.itemPlaces();
+    return home ? [home, ...places] : places;
+  });
   printOptionsPlaces = computed(() => {
     const options = this.printOptions();
     const places: Set<Place> = new Set();
@@ -221,8 +254,12 @@ export class TripComponent implements AfterViewInit, OnDestroy {
 
     return this.tripViewModel()
       .flatMap((vm) => vm.items)
-      .filter((item) => item.place?.id === place.id);
+      .filter((item) => item.place?.id === place.id && !item.isVirtualStay && !item.isVirtualCheckout);
   });
+
+  dayHasRealItems(group: DayViewModel): boolean {
+    return group.items.some((item) => !item.isVirtualStay && !item.isVirtualCheckout);
+  }
   selectedItems = computed(() => {
     const ids = this.selectedItemIds();
     return this.tripViewModel()
@@ -258,13 +295,21 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     const query = this.searchQuery().toLowerCase().trim();
     const hasQuery = query.length > 0;
     const statusesMap = new Map(this.utilsService.statuses.map((s) => [s.label, s]));
+    const routeEstimates = this.routeEstimates();
+    const dayIndexById = new Map(currentTrip.days.map((day, index) => [day.id, index]));
 
     return currentTrip.days
       .map((day, dayIndex) => {
-        let filteredItems = day.items;
+        const stayItems = currentTrip.days.flatMap((candidateDay) =>
+          candidateDay.items.filter((item) => this.isAccommodationStay(item)),
+        );
+        let displayItems: ViewTripItem[] = [
+          ...(day.items as ViewTripItem[]),
+          ...this.virtualStayItemsForDay(day, dayIndex, stayItems, dayIndexById),
+        ];
 
         if (hasQuery) {
-          filteredItems = filteredItems.filter(
+          displayItems = displayItems.filter(
             (item) =>
               item.text?.toLowerCase().includes(query) ||
               item.place?.name.toLowerCase().includes(query) ||
@@ -272,35 +317,63 @@ export class TripComponent implements AfterViewInit, OnDestroy {
           );
         }
 
-        if (filteredItems.length === 0 && hasQuery) return null;
-        filteredItems.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+        if (displayItems.length === 0 && hasQuery) return null;
+        displayItems.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
 
         const home = this.tripHomeCoordinate();
         let prevLat: number | null = dayIndex === 0 && home ? home.lat : null;
         let prevLng: number | null = dayIndex === 0 && home ? home.lng : null;
+        let prevDepartureMinutes: number | null = null;
         let totalCost = 0;
         let hasPlaces = false;
 
-        const items = filteredItems.map((item) => {
+        const items = displayItems.map((item) => {
           const statusObj =
             typeof item.status === 'string' ? statusesMap.get(item.status) : (item.status as TripStatus | undefined);
 
-          const lat = item.lat ?? item.place?.lat;
-          const lng = item.lng ?? item.place?.lng;
+          const lat = item.isVirtualStay ? null : (item.lat ?? item.place?.lat);
+          const lng = item.isVirtualStay ? null : (item.lng ?? item.place?.lng);
 
           let distance: number | undefined;
+          let eta: string | undefined;
+          let travelDuration: string | undefined;
           if (lat != null && lng != null) {
             if (prevLat != null && prevLng != null) {
-              distance = Math.round(computeDistLatLng(prevLat, prevLng, lat, lng) * 10) / 10;
+              const routeKey = this.routeEstimateKey({ lat: prevLat, lng: prevLng }, { lat, lng });
+              const routeEstimate = routeEstimates.get(routeKey);
+              const rawDistanceKm = routeEstimate ? routeEstimate.distance / 1000 : computeDistLatLng(prevLat, prevLng, lat, lng);
+              distance = Math.round(rawDistanceKm * 10) / 10;
+
+              const travelMinutes = routeEstimate
+                ? Math.ceil(routeEstimate.duration / 60)
+                : this.estimateTravelMinutes(rawDistanceKm);
+              if (travelMinutes > 0) travelDuration = this.formatDurationMinutes(travelMinutes);
+              if (prevDepartureMinutes != null && travelMinutes > 0) {
+                eta = this.formatTimeMinutes(prevDepartureMinutes + travelMinutes);
+              }
             }
             prevLat = lat;
             prevLng = lng;
           }
 
           if (item.price) totalCost += item.price;
-          if (item.place) hasPlaces = true;
+          if (item.place && !item.isVirtualStay && !item.isVirtualCheckout) hasPlaces = true;
 
-          return { ...item, status: statusObj, distance };
+          const itemStart = this.parseTimeMinutes(item.time);
+          const stopDuration = this.isAccommodationPlace(item.place) ? 0 : (item.place?.duration ?? 0);
+          if (itemStart != null) prevDepartureMinutes = itemStart + stopDuration;
+
+          return {
+            ...item,
+            status: statusObj,
+            distance,
+            eta,
+            travelDuration,
+            isHome: this.isHomeItem(item),
+            checkinTime: item.place?.checkin_time,
+            checkoutTime: item.stay_checkout_time ?? item.place?.checkout_time,
+            earlyArrivalMinutes: this.earlyArrivalMinutes(item, eta),
+          };
         });
 
         return {
@@ -328,6 +401,77 @@ export class TripComponent implements AfterViewInit, OnDestroy {
       );
     }, 0);
   });
+
+  isAccommodationPlace(place?: Place | null): boolean {
+    return place?.category?.name?.toLowerCase() === 'accommodation';
+  }
+
+  isAccommodationStay(item: Partial<TripItem>): boolean {
+    return (
+      this.isAccommodationPlace(item.place) &&
+      item.stay_checkout_day_id != null &&
+      !!item.stay_checkout_time
+    );
+  }
+
+  virtualStayItemsForDay(
+    day: TripDay,
+    dayIndex: number,
+    stayItems: TripItem[],
+    dayIndexById: Map<number, number>,
+  ): ViewTripItem[] {
+    const virtualItems: ViewTripItem[] = [];
+
+    for (const item of stayItems) {
+      if (!item.place || item.stay_checkout_day_id == null || !item.stay_checkout_time) continue;
+
+      const arrivalIndex = dayIndexById.get(item.day_id);
+      const checkoutIndex = dayIndexById.get(item.stay_checkout_day_id);
+      if (arrivalIndex == null || checkoutIndex == null || checkoutIndex <= arrivalIndex) continue;
+
+      if (dayIndex > arrivalIndex && dayIndex < checkoutIndex) {
+        virtualItems.push({
+          ...item,
+          status: typeof item.status === 'string' ? undefined : item.status,
+          id: -(VIRTUAL_ITEM_ID_OFFSET + item.id * 10 + day.id),
+          day_id: day.id,
+          time: '00:00',
+          text: `Staying at ${item.place.name}`,
+          comment: undefined,
+          price: undefined,
+          isVirtualStay: true,
+          sourceItemId: item.id,
+        });
+      }
+
+      if (day.id === item.stay_checkout_day_id) {
+        virtualItems.push({
+          ...item,
+          status: typeof item.status === 'string' ? undefined : item.status,
+          id: -(VIRTUAL_ITEM_ID_OFFSET + item.id * 10 + 1),
+          day_id: day.id,
+          time: item.stay_checkout_time,
+          text: `Check out · ${item.place.name}`,
+          comment: undefined,
+          price: undefined,
+          isVirtualCheckout: true,
+          sourceItemId: item.id,
+        });
+      }
+    }
+
+    return virtualItems;
+  }
+
+  earlyArrivalMinutes(item: ViewTripItem, eta?: string): number | undefined {
+    if (!eta || item.isVirtualStay || item.isVirtualCheckout || !this.isAccommodationPlace(item.place)) return undefined;
+
+    const checkin = this.parseTimeMinutes(item.place?.checkin_time || '');
+    const arrival = this.parseTimeMinutes(eta);
+    if (checkin == null || arrival == null || arrival >= checkin) return undefined;
+    return checkin - arrival;
+  }
+
   displayedPlaces = computed(() => {
     const allPlaces = this.places();
     if (!this.showOnlyUnplannedPlaces()) return allPlaces;
@@ -442,6 +586,7 @@ export class TripComponent implements AfterViewInit, OnDestroy {
   selectedTripDayForMenu?: TripDay;
   statuses: TripStatus[];
   availableItemProps = ['place', 'comment', 'latlng', 'price', 'status', 'distance'];
+  roadbookLegendGroups: RoadbookLegendGroup[] = ROADBOOK_LEGEND_GROUPS;
 
   map?: L.Map;
   markerClusterGroup?: L.MarkerClusterGroup;
@@ -635,13 +780,15 @@ export class TripComponent implements AfterViewInit, OnDestroy {
   loadTripData(id: number) {
     forkJoin({
       trip: this.apiService.getTrip(id),
+      places: this.apiService.getPlaces(),
       settings: this.apiService.getSettings(),
       members: this.apiService.getTripMembers(id),
     })
       .pipe(take(1))
       .subscribe({
-        next: ({ trip, settings, members }) => {
+        next: ({ trip, places, settings, members }) => {
           this.trip.set(trip);
+          this.allPlaces.set(places);
           this.tripMembers.set(members);
           if (!this.map) this.initMap(settings);
         },
@@ -692,6 +839,7 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     const usedIds = this.usedPlaceIds();
     const allPlaces = this.places();
     const markersToAdd: L.Marker[] = [];
+    const homePlace = this.tripHomePlaceOption();
 
     const itemsByPlaceId = new Map<number, ViewTripItem[]>();
     viewModels.forEach((vm) => {
@@ -724,6 +872,12 @@ export class TripComponent implements AfterViewInit, OnDestroy {
       this.markers.set(place.id, marker);
       markersToAdd.push(marker);
     });
+
+    if (homePlace) {
+      const marker = placeToMarker(homePlace, false, false, false, () => this.addHomeItem());
+      marker.on('click', () => this.flyTo([homePlace.lat, homePlace.lng]));
+      markersToAdd.push(marker);
+    }
 
     if (markersToAdd.length) {
       this.markerClusterGroup.addLayers(markersToAdd);
@@ -773,6 +927,18 @@ export class TripComponent implements AfterViewInit, OnDestroy {
             label: 'Plan',
             icon: 'pi pi-plus',
             command: () => this.addItem(),
+          },
+          {
+            label: 'Recalculate Times',
+            icon: 'pi pi-refresh',
+            disabled: this.trip()!.archived,
+            command: () => this.retimeDay(day),
+          },
+          {
+            label: 'Add Home',
+            icon: 'pi pi-home',
+            disabled: !this.tripHomeCoordinate(),
+            command: () => this.addHomeItem(day.id),
           },
           {
             label: 'Edit',
@@ -867,6 +1033,18 @@ export class TripComponent implements AfterViewInit, OnDestroy {
             label: 'Routing',
             icon: 'pi pi-car',
             command: () => this.dayRouting(d),
+          },
+          {
+            label: 'Recalculate Times',
+            icon: 'pi pi-refresh',
+            disabled: this.trip()!.archived,
+            command: () => this.retimeDay(d),
+          },
+          {
+            label: 'Add Home',
+            icon: 'pi pi-home',
+            disabled: !this.tripHomeCoordinate() || this.trip()!.archived,
+            command: () => this.addHomeItem(d.id),
           },
           {
             label: 'Open Navigation',
@@ -981,6 +1159,18 @@ export class TripComponent implements AfterViewInit, OnDestroy {
             label: 'Open Navigation',
             icon: 'pi pi-directions',
             command: () => this.tripDayToNavigation(d.id),
+          },
+          {
+            label: 'Recalculate Times',
+            icon: 'pi pi-refresh',
+            disabled: this.trip()!.archived,
+            command: () => this.retimeDay(d),
+          },
+          {
+            label: 'Add Home',
+            icon: 'pi pi-home',
+            disabled: !this.tripHomeCoordinate() || this.trip()!.archived,
+            command: () => this.addHomeItem(d.id),
           },
           {
             label: 'Highlight',
@@ -1161,6 +1351,18 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     const categories = new Map<number, Category>();
     places.forEach((p) => categories.set(p.category.id, p.category));
     return Array.from(categories.values());
+  }
+
+  roadbookRows(group: DayViewModel): RoadbookRow[] {
+    return roadbookRowsForDay(group);
+  }
+
+  roadbookDayTotal(group: DayViewModel): string {
+    return roadbookDayTotalKm(group);
+  }
+
+  roadbookEmergencyUrl(): string {
+    return roadbookEmergencyMapsUrl(this.trip());
   }
 
   resetPlansWidth() {
@@ -1359,20 +1561,25 @@ export class TripComponent implements AfterViewInit, OnDestroy {
         trip: this.trip(),
         selectedDayId: dayId,
         selectedPlaceId: placeId,
-        places: this.places(),
+        selectedHome: placeId === HOME_PLACE_ID,
+        places: this.itemPlaceOptions(),
         members: this.tripMembers(),
       },
     })!;
 
-    modal.onClose.pipe(take(1)).subscribe((newItem: (TripItem & { day_id: number[] }) | null) => {
+    modal.onClose.pipe(take(1)).subscribe((newItem: NewTripItemFormValue | null) => {
       if (!newItem) return;
 
-      const obs$ = newItem.day_id.map((day_id) =>
-        this.apiService.postTripDayItem({ ...newItem, day_id }, this.trip()!.id, day_id),
-      );
-
-      forkJoin(obs$)
-        .pipe(take(1))
+      this.ensureTripPlace(newItem.place)
+        .pipe(
+          switchMap(() => {
+            const obs$ = newItem.day_id.map((day_id) =>
+              this.apiService.postTripDayItem({ ...newItem, day_id } as TripItem, this.trip()!.id, day_id),
+            );
+            return forkJoin(obs$);
+          }),
+          take(1),
+        )
         .subscribe({
           next: (items: TripItem[]) => {
             this.trip.update((currentTrip) => {
@@ -1397,7 +1604,20 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  addHomeItem(dayId?: number) {
+    if (!this.tripHomeCoordinate()) {
+      this.utilsService.toast('warn', 'Home missing', 'Set trip home before adding it to the plan');
+      return;
+    }
+    this.addItem(dayId, HOME_PLACE_ID);
+  }
+
   editItem(item: TripItem) {
+    const editItem = {
+      ...item,
+      place: item.place?.id ?? (this.isHomeItem(item) ? HOME_PLACE_ID : null),
+      status: item.status ? (item.status as TripStatus)?.label : null,
+    };
     const modal = this.dialogService.open(TripCreateDayItemModalComponent, {
       header: 'Update Item',
       modal: true,
@@ -1408,46 +1628,64 @@ export class TripComponent implements AfterViewInit, OnDestroy {
       resizable: false,
       data: {
         trip: this.trip(),
-        item: { ...item, status: item.status ? (item.status as TripStatus)?.label : null },
-        places: this.places(),
+        item: editItem,
+        places: this.itemPlaceOptions(),
         members: this.tripMembers(),
       },
     })!;
 
-    modal.onClose.pipe(take(1)).subscribe((updated: TripItem | null) => {
+    modal.onClose.pipe(take(1)).subscribe((updated: TripItemFormValue | null) => {
       if (!updated) return;
 
-      this.apiService.putTripDayItem(updated, this.trip()!.id, item.day_id, item.id).subscribe((newItem) => {
-        this.trip.update((current) => {
-          if (!current) return null;
+      this.ensureTripPlace(updated.place)
+        .pipe(
+          switchMap(() => this.apiService.putTripDayItem(updated as Partial<TripItem>, this.trip()!.id, item.day_id, item.id)),
+        )
+        .subscribe((newItem) => {
+          this.trip.update((current) => {
+            if (!current) return null;
 
-          let days = [...current.days];
+            let days = [...current.days];
 
-          if (item.day_id !== newItem.day_id) {
-            days = days.map((d) =>
-              d.id === item.day_id ? { ...d, items: d.items.filter((i) => i.id !== item.id) } : d,
-            );
-          }
-
-          days = days.map((d) => {
-            if (d.id === newItem.day_id) {
-              const exists = d.items.some((i) => i.id === newItem.id);
-              const newItems = exists ? d.items.map((i) => (i.id === newItem.id ? newItem : i)) : [...d.items, newItem];
-              return { ...d, items: newItems };
+            if (item.day_id !== newItem.day_id) {
+              days = days.map((d) =>
+                d.id === item.day_id ? { ...d, items: d.items.filter((i) => i.id !== item.id) } : d,
+              );
             }
-            return d;
-          });
 
-          return { ...current, days };
+            days = days.map((d) => {
+              if (d.id === newItem.day_id) {
+                const exists = d.items.some((i) => i.id === newItem.id);
+                const newItems = exists
+                  ? d.items.map((i) => (i.id === newItem.id ? newItem : i))
+                  : [...d.items, newItem];
+                return { ...d, items: newItems };
+              }
+              return d;
+            });
+
+            return { ...current, days };
+          });
+          const normalizedItem = this.normalizeItem(newItem);
+          if (this.selectedItem()?.id === item.id) this.selectedItem.set(normalizedItem);
+          if (this.selectedPlace()?.id === item.place?.id || this.selectedPlace()?.id === newItem.place?.id) {
+            const currentPlace = this.selectedPlace();
+            if (currentPlace) this.selectedPlace.set({ ...currentPlace });
+          }
         });
-        const normalizedItem = this.normalizeItem(newItem);
-        if (this.selectedItem()?.id === item.id) this.selectedItem.set(normalizedItem);
-        if (this.selectedPlace()?.id === item.place?.id || this.selectedPlace()?.id === newItem.place?.id) {
-          const currentPlace = this.selectedPlace();
-          if (currentPlace) this.selectedPlace.set({ ...currentPlace });
-        }
-      });
     });
+  }
+
+  ensureTripPlace(placeId?: number | null): Observable<Trip | null> {
+    const trip = this.trip();
+    if (!trip || !placeId || placeId === HOME_PLACE_ID || this.places().some((place) => place.id === placeId)) {
+      return of(trip);
+    }
+    return this.apiService.putTrip({ place_ids: [placeId, ...this.places().map((place) => place.id)] }, trip.id).pipe(
+      tap((updatedTrip) => {
+        this.trip.set(updatedTrip);
+      }),
+    );
   }
 
   deleteItem(item: TripItem) {
@@ -2490,6 +2728,209 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  canRetimeDay(day: TripDay): boolean {
+    const routeItems = this.sortedRouteableDayItems(day);
+    return routeItems.length >= 2 && this.parseTimeMinutes(routeItems[0].time) !== null;
+  }
+
+  routeableDayItems(day: TripDay): ViewTripItem[] {
+    const trip = this.trip();
+    if (!trip) return day.items as ViewTripItem[];
+
+    const dayIndexById = new Map(trip.days.map((tripDay, index) => [tripDay.id, index]));
+    const dayIndex = dayIndexById.get(day.id) ?? 0;
+    const stayItems = trip.days.flatMap((candidateDay) =>
+      candidateDay.items.filter((item) => this.isAccommodationStay(item)),
+    );
+    const virtualCheckoutItems = this.virtualStayItemsForDay(day, dayIndex, stayItems, dayIndexById).filter(
+      (item) => item.isVirtualCheckout,
+    );
+    return [...(day.items as ViewTripItem[]), ...virtualCheckoutItems];
+  }
+
+  sortedRouteableDayItems(day: TripDay): ViewTripItem[] {
+    return this.routeableDayItems(day)
+      .slice()
+      .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
+      .filter((item) => this.tripItemCoordinate(item) !== null);
+  }
+
+  getRouteEstimate(from: L.LatLngLiteral, to: L.LatLngLiteral): Observable<{ distance: number; duration: number }> {
+    const key = this.routeEstimateKey(from, to);
+    const existing = this.routeEstimates().get(key);
+    if (existing) return of(existing);
+
+    const start: [number, number] = [from.lat, from.lng];
+    const end: [number, number] = [to.lat, to.lng];
+    const profile = this.routeManager.getProfile(start, end);
+
+    return this.apiService
+      .completionRouting({
+        coordinates: [from, to],
+        profile,
+      })
+      .pipe(
+        map((resp) => ({ distance: resp.distance ?? 0, duration: resp.duration ?? 0 })),
+        tap((estimate) => {
+          this.routeEstimates.update((estimates) => {
+            const updated = new Map(estimates);
+            updated.set(key, estimate);
+            return updated;
+          });
+        }),
+      );
+  }
+
+  buildRetimingChanges(
+    routeItems: ViewTripItem[],
+    estimates: { distance: number; duration: number }[],
+  ): TripRetimingChange[] {
+    let cursor = this.parseTimeMinutes(routeItems[0].time);
+    if (cursor === null) return [];
+
+    const changes: TripRetimingChange[] = [];
+    for (let index = 1; index < routeItems.length; index++) {
+      const previous = routeItems[index - 1];
+      const current = routeItems[index];
+      const estimate = estimates[index - 1];
+      const travelMinutes = Math.ceil((estimate?.duration ?? 0) / 60);
+      const stopDuration =
+        previous.isVirtualCheckout || this.isAccommodationPlace(previous.place) ? 0 : (previous.place?.duration ?? 0);
+      cursor += stopDuration + travelMinutes;
+
+      let newTime = this.formatTimeMinutes(cursor);
+      if (current.isVirtualCheckout || current.isVirtualStay) {
+        const fixedTime = this.parseTimeMinutes(current.time);
+        if (fixedTime != null) cursor = fixedTime;
+        continue;
+      }
+
+      if (this.isAccommodationPlace(current.place)) {
+        const checkinMinutes = this.parseTimeMinutes(current.place?.checkin_time || current.time);
+        if (checkinMinutes != null && cursor < checkinMinutes) {
+          cursor = checkinMinutes;
+          newTime = this.formatTimeMinutes(checkinMinutes);
+        }
+      }
+
+      if (current.time === newTime) continue;
+
+      changes.push({
+        item: this.normalizeItem(current),
+        oldTime: current.time,
+        newTime,
+        travelDuration: this.formatDurationMinutes(travelMinutes),
+        distance: estimate?.distance ? Math.round((estimate.distance / 1000) * 10) / 10 : undefined,
+      });
+    }
+
+    return changes;
+  }
+
+  retimeDay(day: TripDay) {
+    const routeItems = this.sortedRouteableDayItems(day);
+    if (routeItems.length < 2) {
+      this.utilsService.toast('warn', 'Not enough stops', 'Add at least two stops with coordinates');
+      return;
+    }
+
+    if (this.parseTimeMinutes(routeItems[0].time) === null) {
+      this.utilsService.toast('warn', 'Missing start time', 'The first stop needs a valid time');
+      return;
+    }
+
+    const routeRequests = [];
+    for (let index = 0; index < routeItems.length - 1; index++) {
+      const from = this.tripItemCoordinate(routeItems[index]);
+      const to = this.tripItemCoordinate(routeItems[index + 1]);
+      if (!from || !to) continue;
+      routeRequests.push(this.getRouteEstimate(from, to));
+    }
+
+    if (!routeRequests.length) return;
+
+    this.utilsService.setLoading(`Calculating schedule (0/${routeRequests.length})...`);
+    forkJoin(routeRequests)
+      .pipe(take(1))
+      .subscribe({
+        next: (estimates) => {
+          this.utilsService.setLoading('');
+          const changes = this.buildRetimingChanges(routeItems, estimates);
+          if (!changes.length) {
+            this.utilsService.toast('info', 'Already aligned', 'Times already match the current route order');
+            return;
+          }
+          this.openRetimingPreview(day, changes);
+        },
+        error: (err) => {
+          this.utilsService.setLoading('');
+          this.utilsService.toast('error', 'Routing error', 'Could not calculate schedule');
+          console.error('Retiming failed:', err);
+        },
+      });
+  }
+
+  openRetimingPreview(day: TripDay, changes: TripRetimingChange[]) {
+    const modal = this.dialogService.open(TripRetimingPreviewModalComponent, {
+      header: 'Recalculate Times',
+      modal: true,
+      appendTo: 'body',
+      closable: true,
+      dismissableMask: true,
+      draggable: false,
+      resizable: false,
+      width: '34vw',
+      breakpoints: {
+        '960px': '70vw',
+        '640px': '90vw',
+      },
+      data: { changes },
+    })!;
+
+    modal.onClose.pipe(take(1)).subscribe((confirmed: boolean) => {
+      if (!confirmed) return;
+      this.applyRetimingChanges(day, changes);
+    });
+  }
+
+  applyRetimingChanges(day: TripDay, changes: TripRetimingChange[]) {
+    if (!changes.length) return;
+    this.utilsService.setLoading('Updating times...');
+
+    const updates = changes.map((change) =>
+      this.apiService.putTripDayItem({ time: change.newTime }, this.trip()!.id, day.id, change.item.id),
+    );
+
+    forkJoin(updates)
+      .pipe(take(1))
+      .subscribe({
+        next: (updatedItems) => {
+          const updatedById = new Map(updatedItems.map((item) => [item.id, item]));
+          this.trip.update((current) => {
+            if (!current) return null;
+            const days = current.days.map((currentDay) => {
+              if (currentDay.id !== day.id) return currentDay;
+              return {
+                ...currentDay,
+                items: currentDay.items.map((item) => updatedById.get(item.id) ?? item),
+              };
+            });
+            return { ...current, days };
+          });
+
+          const selected = this.selectedItem();
+          if (selected && updatedById.has(selected.id)) this.selectedItem.set(this.normalizeItem(updatedById.get(selected.id)!));
+          this.utilsService.setLoading('');
+          this.utilsService.toast('success', 'Times updated', `${updatedItems.length} stop${updatedItems.length > 1 ? 's' : ''} updated`);
+        },
+        error: (err) => {
+          this.utilsService.setLoading('');
+          this.utilsService.toast('error', 'Update failed', 'Could not update plan times');
+          console.error('Retiming update failed:', err);
+        },
+      });
+  }
+
   dayRouting(day: TripDay) {
     const coords = this.tripDayRouteCoordinates(day).map((coordinate) => [coordinate.lat, coordinate.lng] as [number, number]);
     const markers: any[] = [];
@@ -2557,6 +2998,17 @@ export class TripComponent implements AfterViewInit, OnDestroy {
                 ? ''
                 : `Calculating routes (${completedRoutes}/${routeSegments.length})...`,
             );
+            this.routeEstimates.update((estimates) => {
+              const updated = new Map(estimates);
+              updated.set(
+                this.routeEstimateKey(
+                  { lat: segment.start[0], lng: segment.start[1] },
+                  { lat: segment.end[0], lng: segment.end[1] },
+                ),
+                { distance: resp.distance ?? 0, duration: resp.duration ?? 0 },
+              );
+              return updated;
+            });
 
             const layer = this.routeManager.addRoute({
               id: this.routeManager.createRouteId(segment.start, segment.end, profile),
@@ -2594,16 +3046,84 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     return { lat: trip.home_lat, lng: trip.home_lng };
   }
 
+  tripHomePlaceOption(): Place | null {
+    const trip = this.trip();
+    if (trip?.home_lat == null || trip.home_lng == null) return null;
+    return {
+      id: HOME_PLACE_ID,
+      name: trip.home_name || 'Home',
+      place: trip.home_name || 'Home',
+      lat: trip.home_lat,
+      lng: trip.home_lng,
+      image: '/favicon.png',
+      category: {
+        id: HOME_PLACE_ID,
+        name: 'Home',
+        image_id: HOME_PLACE_ID,
+        image: '/favicon.png',
+        color: '#111827',
+        icon: '',
+      },
+    };
+  }
+
+  isHomeCoordinate(lat?: number | null, lng?: number | null): boolean {
+    const home = this.tripHomeCoordinate();
+    if (!home || lat == null || lng == null) return false;
+    return Math.abs(home.lat - lat) < 0.000001 && Math.abs(home.lng - lng) < 0.000001;
+  }
+
+  isHomeItem(item: Partial<TripItem>): boolean {
+    return !item.place && this.isHomeCoordinate(item.lat, item.lng);
+  }
+
   tripItemCoordinate(item: TripItem): L.LatLngLiteral | null {
+    if ((item as ViewTripItem).isVirtualStay) return null;
     const lat = item.lat ?? item.place?.lat;
     const lng = item.lng ?? item.place?.lng;
     if (lat == null || lng == null) return null;
     return { lat, lng };
   }
 
+  routeEstimateKey(from: L.LatLngLiteral, to: L.LatLngLiteral): string {
+    return `${from.lat.toFixed(6)},${from.lng.toFixed(6)}>${to.lat.toFixed(6)},${to.lng.toFixed(6)}`;
+  }
+
+  parseTimeMinutes(value?: string): number | null {
+    if (!value) return null;
+    const match = value.match(/^([01]\d|2[0-3])(?::([0-5]\d))?$/);
+    if (!match) return null;
+    return Number(match[1]) * 60 + Number(match[2] ?? 0);
+  }
+
+  formatTimeMinutes(value: number): string {
+    const minutesInDay = 24 * 60;
+    const normalized = ((value % minutesInDay) + minutesInDay) % minutesInDay;
+    const hours = Math.floor(normalized / 60)
+      .toString()
+      .padStart(2, '0');
+    const minutes = (normalized % 60).toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+  }
+
+  formatDurationMinutes(minutes: number): string {
+    if (minutes >= 60) {
+      const hours = Math.floor(minutes / 60);
+      const remaining = minutes % 60;
+      return remaining > 0 ? `${hours}h ${remaining}m` : `${hours}h`;
+    }
+    return `${minutes}m`;
+  }
+
+  estimateTravelMinutes(distanceKm: number): number {
+    if (distanceKm <= 0.05) return 0;
+    const profile = distanceKm > 5 ? 'car' : 'foot';
+    return Math.max(1, Math.ceil((distanceKm / ROUTE_ESTIMATE_SPEEDS_KMH[profile]) * 60));
+  }
+
   tripDayRouteCoordinates(day: TripDay): L.LatLngLiteral[] {
     const trip = this.trip();
-    const coordinates = day.items
+    const coordinates = this.routeableDayItems(day)
       .slice()
       .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
       .map((item) => this.tripItemCoordinate(item))

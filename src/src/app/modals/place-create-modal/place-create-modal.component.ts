@@ -57,6 +57,7 @@ export class PlaceCreateModalComponent {
 
   placeForm: FormGroup;
   categories$?: Observable<Category[]>;
+  categories: Category[] = [];
   previous_image_id: number | null = null;
   previous_image: string | null = null;
   showImageUrlDialog = false;
@@ -96,6 +97,11 @@ export class PlaceCreateModalComponent {
       description: null,
       url: null,
       duration: [null, Validators.pattern('\\d+')],
+      checkin_time: [null, Validators.pattern(/^([01]\d|2[0-3]):[0-5]\d$/)],
+      checkout_time: [null, Validators.pattern(/^([01]\d|2[0-3]):[0-5]\d$/)],
+      duration_days: [null, [Validators.min(0), Validators.pattern('\\d+')]],
+      duration_hours: [null, [Validators.min(0), Validators.max(23), Validators.pattern('\\d+')]],
+      duration_minutes: [null, [Validators.min(0), Validators.max(59), Validators.pattern('\\d+')]],
       price: null,
       allowdog: false,
       restroom: false,
@@ -106,7 +112,19 @@ export class PlaceCreateModalComponent {
     });
 
     const patchValue = this.config.data?.place as Place | undefined;
-    if (patchValue) this.placeForm.patchValue(patchValue);
+    if (patchValue) {
+      this.placeForm.patchValue(patchValue);
+      this.setDurationParts(patchValue.duration ?? null);
+    }
+
+    this.categories$?.pipe(take(1)).subscribe({
+      next: (categories) => (this.categories = categories),
+    });
+
+    this.watchDurationPart('duration_days');
+    this.watchDurationPart('duration_hours');
+    this.watchDurationPart('duration_minutes');
+
     this.placeForm
       .get('place')
       ?.valueChanges.pipe(takeUntilDestroyed())
@@ -153,6 +171,18 @@ export class PlaceCreateModalComponent {
     let ret = this.placeForm.value;
     ret['category_id'] = ret['category'];
     delete ret['category'];
+    delete ret['duration_days'];
+    delete ret['duration_hours'];
+    delete ret['duration_minutes'];
+    ret['duration'] = ret['duration'] === null || ret['duration'] === '' ? null : +ret['duration'];
+    if (this.isAccommodationSelected()) {
+      ret['checkin_time'] = ret['checkin_time'] || null;
+      ret['checkout_time'] = ret['checkout_time'] || null;
+      ret['duration'] = null;
+    } else {
+      ret['checkin_time'] = null;
+      ret['checkout_time'] = null;
+    }
     if (ret['image_id']) {
       delete ret['image'];
       delete ret['image_id'];
@@ -312,6 +342,49 @@ export class PlaceCreateModalComponent {
   toggleCheckbox(k: string) {
     this.placeForm.get(k)?.setValue(!this.placeForm.get(k)?.value);
     this.placeForm.markAsDirty();
+  }
+
+  isAccommodationSelected(): boolean {
+    const categoryId = this.placeForm.get('category')?.value;
+    const category = this.categories.find((c) => c.id === categoryId);
+    return category?.name.toLowerCase() === 'accommodation';
+  }
+
+  private watchDurationPart(controlName: 'duration_days' | 'duration_hours' | 'duration_minutes') {
+    this.placeForm
+      .get(controlName)
+      ?.valueChanges.pipe(takeUntilDestroyed())
+      .subscribe({
+        next: () => this.updateDurationFromParts(),
+      });
+  }
+
+  private setDurationParts(totalMinutes: number | null) {
+    const total = Number(totalMinutes || 0);
+    const days = Math.floor(total / 1440);
+    const hours = Math.floor((total % 1440) / 60);
+    const minutes = Math.floor(total % 60);
+
+    this.placeForm.patchValue(
+      {
+        duration_days: days || null,
+        duration_hours: hours || null,
+        duration_minutes: minutes || null,
+      },
+      { emitEvent: false },
+    );
+  }
+
+  private updateDurationFromParts() {
+    const days = Number(this.placeForm.get('duration_days')?.value || 0);
+    const hours = Number(this.placeForm.get('duration_hours')?.value || 0);
+    const minutes = Number(this.placeForm.get('duration_minutes')?.value || 0);
+    const total = days * 1440 + hours * 60 + minutes;
+    const durationControl = this.placeForm.get('duration');
+
+    durationControl?.setValue(total || null, { emitEvent: false });
+    durationControl?.markAsDirty();
+    durationControl?.updateValueAndValidity();
   }
 
   setImageFromUrl() {
