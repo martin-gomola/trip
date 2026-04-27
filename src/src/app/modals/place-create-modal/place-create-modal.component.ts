@@ -22,6 +22,8 @@ import { checkAndParseLatLng, formatLatLng } from '../../shared/latlng-parser';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { PlaceCreateProviderModalComponent } from '../place-create-provider-modal/place-create-provider-modal.component';
 import { DialogModule } from 'primeng/dialog';
+import { AutoCompleteModule, AutoCompleteCompleteEvent } from 'primeng/autocomplete';
+import { suggestCurrencies } from '../../shared/currencies';
 
 @Component({
   selector: 'app-place-create-modal',
@@ -42,6 +44,7 @@ import { DialogModule } from 'primeng/dialog';
     DialogModule,
     CommonModule,
     FormsModule,
+    AutoCompleteModule,
   ],
   standalone: true,
   templateUrl: './place-create-modal.component.html',
@@ -62,6 +65,8 @@ export class PlaceCreateModalComponent {
   previous_image: string | null = null;
   showImageUrlDialog = false;
   imageUrl = '';
+  currencySuggestions: string[] = [];
+  defaultCurrency = '';
 
   constructor(
     private ref: DynamicDialogRef,
@@ -122,6 +127,10 @@ export class PlaceCreateModalComponent {
       next: (categories) => (this.categories = categories),
     });
 
+    this.utilsService.currency$.pipe(takeUntilDestroyed()).subscribe({
+      next: (currency) => (this.defaultCurrency = currency ?? ''),
+    });
+
     this.watchDurationPart('duration_days');
     this.watchDurationPart('duration_hours');
     this.watchDurationPart('duration_minutes');
@@ -165,6 +174,10 @@ export class PlaceCreateModalComponent {
           lngControl?.updateValueAndValidity();
         },
       });
+  }
+
+  searchCurrency(event: AutoCompleteCompleteEvent) {
+    this.currencySuggestions = suggestCurrencies(event.query ?? '', this.defaultCurrency);
   }
 
   closeDialog() {

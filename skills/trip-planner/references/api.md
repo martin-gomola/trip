@@ -60,6 +60,26 @@ Optional fields supported by the running app:
 - `gpx`.
 - `restroom`.
 
+## Image Enrichment via Wikipedia
+
+When research returns a place that has a Wikipedia article, the article's lead image is usually a clean, license-safe photo. The TRIP server downloads and crops whatever URL is passed in `image`, so this is a deterministic way to populate the field without guessing CDN URLs.
+
+```bash
+curl -s "https://en.wikipedia.org/api/rest_v1/page/summary/ARTICLE_NAME" \
+  -H "User-Agent: trip-planner/1.0"
+```
+
+Use the `originalimage.source` field from the JSON response as the `image` value on `POST /api/by_token/place`.
+
+URL-encode non-ASCII characters in the article slug. Real examples:
+
+- `Jerónimos_Monastery` → `Jer%C3%B3nimos_Monastery`
+- `São_Jorge_Castle` → `S%C3%A3o_Jorge_Castle`
+- `Praça_do_Comércio` → `Pra%C3%A7a_do_Com%C3%A9rcio`
+- `Bratislavský_hrad` → `Bratislavsk%C3%BD_hrad`
+
+If the article does not exist or has no `originalimage`, fall back to a related article (for example `Trams_in_Lisbon` instead of `Tram_28`) or skip the field.
+
 ## Google-Backed Place Creation
 
 `POST /api/by_token/google-search`
@@ -73,6 +93,33 @@ Optional field:
 - `category`, used when Google type mapping does not resolve to an existing category.
 
 This requires both a TRIP API token and a Google API key configured on the TRIP account.
+
+## Itinerary Time Semantics (UI-only fields)
+
+The TRIP UI persists two fields used by the ETA chain. They are NOT exposed
+through `by_token`; if a future session extends `trip_api.py` to manage
+itinerary items, these are the names to use:
+
+- `tripitem.duration_minutes` (int, 0–1440, nullable). Visit/stop duration at
+  the place. The frontend uses it to advance the ETA clock past this row:
+  `next_arrival = max(this_row_arrival, pinned_time) + duration_minutes +
+  travel_to_next`. Not used for accommodation rows (those use
+  `stay_checkout_*`).
+- `tripday.day_start_time` ("HH:MM", nullable). On base-camp days (a stay
+  in progress, not check-in or check-out day), this is the time the user
+  leaves the accommodation in the morning. Default `09:00` when null.
+
+Per-item `time` is a **target / pin**, not an anchor. The ETA engine computes
+arrival from the chain (anchor → travel → duration → travel...) and only uses
+`time` to display a `+Nm late` / `-Nm early` delta badge.
+
+Day anchors used by the chain:
+
+- Day 0 with `home` set → home coordinates, `day_start_time` else first item's
+  `time` else `08:00`.
+- Base-camp day → accommodation coordinates, `day_start_time` else `09:00`.
+- Checkout day → the virtual checkout row carries the anchor inline
+  (`stay_checkout_time` + accommodation coordinates).
 
 ## Credential Resolution
 

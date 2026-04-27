@@ -273,7 +273,16 @@
               </p-floatlabel>
 
               <p-floatlabel variant="in">
-                <input id="price_currency" formControlName="price_currency" placeholder="€" pInputText fluid />
+                <p-autocomplete
+                  inputId="price_currency"
+                  formControlName="price_currency"
+                  [suggestions]="currencySuggestions"
+                  (completeMethod)="searchCurrency($event)"
+                  [dropdown]="true"
+                  [forceSelection]="false"
+                  [showEmptyMessage]="false"
+                  placeholder="EUR"
+                  fluid />
                 <label for="price_currency">Currency</label>
               </p-floatlabel>
             </div>
@@ -345,7 +354,16 @@
               </p-floatlabel>
 
               <p-floatlabel variant="in">
-                <input id="price_currency_duration" formControlName="price_currency" placeholder="€" pInputText fluid />
+                <p-autocomplete
+                  inputId="price_currency_duration"
+                  formControlName="price_currency"
+                  [suggestions]="currencySuggestions"
+                  (completeMethod)="searchCurrency($event)"
+                  [dropdown]="true"
+                  [forceSelection]="false"
+                  [showEmptyMessage]="false"
+                  placeholder="EUR"
+                  fluid />
                 <label for="price_currency_duration">Currency</label>
               </p-floatlabel>
             </div>

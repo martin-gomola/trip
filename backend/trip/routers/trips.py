@@ -122,7 +122,15 @@ def read_trip(
     db_trip = session.exec(
         select(Trip)
         .options(
-            selectinload(Trip.days).selectinload(TripDay.items),
+            selectinload(Trip.days)
+            .selectinload(TripDay.items)
+            .selectinload(TripItem.place)
+            .selectinload(Place.image),
+            selectinload(Trip.days)
+            .selectinload(TripDay.items)
+            .selectinload(TripItem.place)
+            .selectinload(Place.category),
+            selectinload(Trip.days).selectinload(TripDay.items).selectinload(TripItem.image),
             selectinload(Trip.places),
             selectinload(Trip.image),
             selectinload(Trip.memberships),
@@ -407,6 +415,7 @@ def create_tripitem(
         status=item.status,
         stay_checkout_day_id=item.stay_checkout_day_id,
         stay_checkout_time=item.stay_checkout_time,
+        duration_minutes=item.duration_minutes,
     )
 
     filename = None

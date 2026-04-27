@@ -87,6 +87,7 @@ export class TripCreateDayItemModalComponent {
       status: null,
       price: null,
       price_currency: null,
+      duration_minutes: [null, [Validators.min(0), Validators.max(1440)]],
       image: null,
       image_id: null,
       gpx: null,
@@ -216,6 +217,7 @@ export class TripCreateDayItemModalComponent {
       ret['stay_checkout_time'] = ret['stay_checkout_time'] || null;
     }
     delete ret['stay_nights'];
+    if (this.isSelectedPlaceAccommodation()) ret['duration_minutes'] = null;
     ret['price_currency'] = ret['price'] ? ret['price_currency']?.trim() || this.trip?.currency || null : null;
     if (!ret['lat']) {
       ret['lat'] = null;
@@ -247,6 +249,7 @@ export class TripCreateDayItemModalComponent {
     if (p.description && !this.itemForm.get('comment')?.value) this.itemForm.get('comment')?.setValue(p.description);
     if (this.isAccommodationPlace(p)) {
       this.normalizeAccommodationArrivalDay();
+      this.itemForm.get('duration_minutes')?.setValue(null);
       if (!this.itemForm.get('time')?.value) this.itemForm.get('time')?.setValue(p.checkin_time || '15:00');
       if (!this.itemForm.get('stay_checkout_time')?.value)
         this.itemForm.get('stay_checkout_time')?.setValue(p.checkout_time || '10:00');
@@ -255,6 +258,8 @@ export class TripCreateDayItemModalComponent {
       if (arrivalDayId && !this.itemForm.get('stay_checkout_day_id')?.value) {
         this.syncCheckoutDayFromNights();
       }
+    } else if (pid !== HOME_PLACE_ID && this.itemForm.get('duration_minutes')?.value == null) {
+      this.itemForm.get('duration_minutes')?.setValue(p.duration ?? null);
     }
   }
 

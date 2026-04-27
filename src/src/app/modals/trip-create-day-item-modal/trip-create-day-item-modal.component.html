@@ -246,6 +246,21 @@
         <input id="price_currency" formControlName="price_currency" placeholder="€" pInputText fluid />
         <label for="price_currency">Currency</label>
       </p-floatlabel>
+
+      @if (!isSelectedPlaceAccommodation()) {
+        <p-floatlabel variant="in" class="md:col-span-2">
+          <p-inputnumber
+            id="duration_minutes"
+            formControlName="duration_minutes"
+            [min]="0"
+            [max]="1440"
+            [step]="15"
+            suffix=" min"
+            placeholder="0"
+            fluid />
+          <label for="duration_minutes">Stop duration</label>
+        </p-floatlabel>
+      }
     </div>
 
     <div class="grid md:grid-cols-[auto_1fr] gap-4">

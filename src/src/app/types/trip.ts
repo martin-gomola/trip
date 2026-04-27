@@ -53,6 +53,7 @@ export interface TripDay {
   label: string;
   items: TripItem[];
   notes?: string;
+  day_start_time?: string;
 }
 
 export interface TripItem {
@@ -74,6 +75,7 @@ export interface TripItem {
   attachments?: TripAttachment[];
   stay_checkout_day_id?: number | null;
   stay_checkout_time?: string | null;
+  duration_minutes?: number | null;
 }
 
 export interface TripStatus {
@@ -104,6 +106,7 @@ export interface FlattenedTripItem {
   attachments?: TripAttachment[];
   stay_checkout_day_id?: number | null;
   stay_checkout_time?: string | null;
+  duration_minutes?: number | null;
 }
 
 export interface TripMember {
@@ -162,6 +165,12 @@ export interface ViewTripItem extends TripItem {
   checkinTime?: string;
   checkoutTime?: string;
   earlyArrivalMinutes?: number;
+  /**
+   * Difference between computed ETA and the user-pinned `time`.
+   * Positive = arriving later than planned, negative = earlier than planned.
+   * undefined when no ETA was computed or no `time` is pinned.
+   */
+  etaDeltaMinutes?: number;
 }
 
 export interface DayViewModel {

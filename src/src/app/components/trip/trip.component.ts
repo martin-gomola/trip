@@ -121,6 +121,8 @@ const ROUTE_ESTIMATE_SPEEDS_KMH = {
 };
 const VIRTUAL_ITEM_ID_OFFSET = 1_000_000_000;
 
+const ETA_DELTA_BADGE_THRESHOLD_MIN = 5;
+
 type TripItemFormValue = Omit<TripItem, 'place'> & { place?: number | null };
 type NewTripItemFormValue = Omit<TripItemFormValue, 'day_id'> & { day_id: number[] };
 
@@ -324,10 +326,11 @@ export class TripComponent implements AfterViewInit, OnDestroy {
         if (displayItems.length === 0 && hasQuery) return null;
         displayItems.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
 
-        const home = this.tripHomeCoordinate();
-        let prevLat: number | null = dayIndex === 0 && home ? home.lat : null;
-        let prevLng: number | null = dayIndex === 0 && home ? home.lng : null;
-        let prevDepartureMinutes: number | null = null;
+        const anchor = this.computeDayAnchor(day, dayIndex, stayItems, dayIndexById);
+        let prevLat: number | null = anchor?.lat ?? null;
+        let prevLng: number | null = anchor?.lng ?? null;
+        let prevDepartureMinutes: number | null = anchor?.departureMinutes ?? null;
+        let chainBroken = false;
         const costs = new Map<string, number>();
         let hasPlaces = false;
 
@@ -341,7 +344,9 @@ export class TripComponent implements AfterViewInit, OnDestroy {
           let distance: number | undefined;
           let eta: string | undefined;
           let travelDuration: string | undefined;
-          if (lat != null && lng != null) {
+          let arrivalMinutes: number | null = null;
+
+          if (lat != null && lng != null && !chainBroken) {
             if (prevLat != null && prevLng != null) {
               const routeKey = this.routeEstimateKey({ lat: prevLat, lng: prevLng }, { lat, lng });
               const routeEstimate = routeEstimates.get(routeKey);
@@ -355,11 +360,10 @@ export class TripComponent implements AfterViewInit, OnDestroy {
                 : this.estimateTravelMinutes(rawDistanceKm);
               if (travelMinutes > 0) travelDuration = this.formatDurationMinutes(travelMinutes);
               if (prevDepartureMinutes != null && travelMinutes > 0) {
-                eta = this.formatTimeMinutes(prevDepartureMinutes + travelMinutes);
+                arrivalMinutes = prevDepartureMinutes + travelMinutes;
+                eta = this.formatTimeMinutes(arrivalMinutes);
               }
             }
-            prevLat = lat;
-            prevLng = lng;
           }
 
           if (item.price && !item.isVirtualStay && !item.isVirtualCheckout) {
@@ -368,9 +372,44 @@ export class TripComponent implements AfterViewInit, OnDestroy {
           }
           if (item.place && !item.isVirtualStay && !item.isVirtualCheckout) hasPlaces = true;
 
-          const itemStart = this.parseTimeMinutes(item.time);
-          const stopDuration = this.isAccommodationPlace(item.place) ? 0 : (item.place?.duration ?? 0);
-          if (itemStart != null) prevDepartureMinutes = itemStart + stopDuration;
+          const pinned = this.parseTimeMinutes(item.time);
+          const etaDeltaMinutes =
+            arrivalMinutes != null && pinned != null ? arrivalMinutes - pinned : undefined;
+
+          // Advance the chain. The user-pinned `time` is treated as a target,
+          // not an anchor — so we trust the computed arrival and only fall back
+          // to the pinned time when no chain is running yet (legacy behavior
+          // for trips without a home or stay context).
+          if (item.isVirtualCheckout) {
+            // Virtual checkout: hotel coords, departing at user-set check-out time.
+            if (lat != null && lng != null) {
+              prevLat = lat;
+              prevLng = lng;
+            }
+            if (pinned != null) prevDepartureMinutes = pinned;
+            chainBroken = false;
+          } else if (this.isAccommodationStay(item)) {
+            // Arriving at the accommodation that we'll stay at: chain ends here.
+            // Subsequent rows on this day get no ETA (in practice there are none).
+            if (lat != null && lng != null) {
+              prevLat = lat;
+              prevLng = lng;
+            }
+            chainBroken = true;
+          } else if (lat != null && lng != null) {
+            const baseStart = arrivalMinutes ?? pinned;
+            if (baseStart != null) {
+              const effectiveStart = pinned != null ? Math.max(baseStart, pinned) : baseStart;
+              const stopDuration = item.duration_minutes ?? item.place?.duration ?? 0;
+              prevDepartureMinutes = effectiveStart + stopDuration;
+            }
+            prevLat = lat;
+            prevLng = lng;
+          } else if (pinned != null && prevDepartureMinutes == null) {
+            // Item without coords on a day with no anchor yet — let its time
+            // start the chain so following items can still get ETAs.
+            prevDepartureMinutes = pinned + (item.duration_minutes ?? 0);
+          }
 
           return {
             ...item,
@@ -378,6 +417,7 @@ export class TripComponent implements AfterViewInit, OnDestroy {
             distance,
             eta,
             travelDuration,
+            etaDeltaMinutes,
             isHome: this.isHomeItem(item),
             checkinTime: item.place?.checkin_time,
             checkoutTime: item.stay_checkout_time ?? item.place?.checkout_time,
@@ -566,6 +606,73 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     }
 
     return virtualItems;
+  }
+
+  /**
+   * Compute the start-of-day anchor used by the ETA chain.
+   *
+   * - Day 0 (arrival/first day) with `home` set → anchor at home,
+   *   departing at the user-set day_start_time, otherwise '08:00',
+   *   otherwise the first item's pinned time, otherwise null.
+   * - Mid-trip day where a stay is "in progress" (active accommodation
+   *   covering this day, but not the arrival or checkout day) → anchor
+   *   at the accommodation's coords, departing at day_start_time
+   *   (or '09:00' default).
+   * - Checkout day → null (the virtual checkout row carries its own
+   *   anchor via its `time` and place coords).
+   * - Otherwise → null (chain falls back to the first item's `time`).
+   */
+  computeDayAnchor(
+    day: TripDay,
+    dayIndex: number,
+    stayItems: TripItem[],
+    dayIndexById: Map<number, number>,
+  ): { lat: number; lng: number; departureMinutes: number } | null {
+    const home = this.tripHomeCoordinate();
+    const explicitStart = day.day_start_time ? this.parseTimeMinutes(day.day_start_time) : null;
+
+    if (dayIndex === 0 && home) {
+      const firstPinned = this.parseTimeMinutes(day.items[0]?.time ?? '');
+      const startMinutes = explicitStart ?? firstPinned ?? this.parseTimeMinutes('08:00');
+      if (startMinutes == null) return null;
+      return { lat: home.lat, lng: home.lng, departureMinutes: startMinutes };
+    }
+
+    for (const stay of stayItems) {
+      if (!stay.place || stay.stay_checkout_day_id == null) continue;
+      const arrivalIndex = dayIndexById.get(stay.day_id);
+      const checkoutIndex = dayIndexById.get(stay.stay_checkout_day_id);
+      if (arrivalIndex == null || checkoutIndex == null) continue;
+      const isBaseCampDay = dayIndex > arrivalIndex && dayIndex < checkoutIndex;
+      if (!isBaseCampDay) continue;
+      const lat = stay.place.lat;
+      const lng = stay.place.lng;
+      if (lat == null || lng == null) continue;
+      const startMinutes = explicitStart ?? this.parseTimeMinutes('09:00');
+      if (startMinutes == null) continue;
+      return { lat, lng, departureMinutes: startMinutes };
+    }
+
+    return null;
+  }
+
+  /**
+   * Render hint for the ETA-vs-pinned-time delta badge.
+   * Returns null when |delta| is below the threshold (no badge shown).
+   * Negative delta = arriving earlier than planned (muted).
+   * Positive delta = arriving later than planned (red).
+   */
+  etaDeltaBadge(item: ViewTripItem): { label: string; cssClass: string } | null {
+    if (item.etaDeltaMinutes == null) return null;
+    if (Math.abs(item.etaDeltaMinutes) < ETA_DELTA_BADGE_THRESHOLD_MIN) return null;
+    if (item.isVirtualStay || item.isVirtualCheckout || item.isHome) return null;
+
+    const minutes = Math.abs(item.etaDeltaMinutes);
+    const formatted = this.formatDurationMinutes(minutes);
+    if (item.etaDeltaMinutes > 0) {
+      return { label: `${formatted} late`, cssClass: 'text-red-500 dark:text-red-400 font-medium' };
+    }
+    return { label: `${formatted} early`, cssClass: 'text-primary-400 dark:text-primary-500' };
   }
 
   earlyArrivalMinutes(item: ViewTripItem, eta?: string): number | undefined {
@@ -853,7 +960,11 @@ export class TripComponent implements AfterViewInit, OnDestroy {
         if (!this.map) return;
         if (place) {
           const existingMarker = this.markers.get(place.id);
-          if (existingMarker) this.highlightExistingMarker(existingMarker);
+          if (existingMarker) {
+            this.highlightExistingMarker(existingMarker);
+            const latlng = existingMarker.getLatLng();
+            this.flyTo([latlng.lat, latlng.lng]);
+          }
           return;
         } else if (item) {
           const lat = item.lat;
@@ -861,6 +972,7 @@ export class TripComponent implements AfterViewInit, OnDestroy {
           if (lat && lng) {
             this.selectedItemMarker = tripDayMarker(item);
             this.selectedItemMarker.addTo(this.map);
+            this.flyTo([lat, lng]);
           }
         }
       });
@@ -1917,6 +2029,60 @@ export class TripComponent implements AfterViewInit, OnDestroy {
           });
         });
       }
+    });
+  }
+
+  /**
+   * True when this day is "in the middle of" an accommodation stay
+   * (i.e. between check-in and check-out, exclusive). Used to show the
+   * inline "Day starts at HH:MM" pill on base-camp days only.
+   */
+  dayHasActiveStay(day: TripDay): boolean {
+    const trip = this.trip();
+    if (!trip?.days?.length) return false;
+    const dayIndex = trip.days.findIndex((d) => d.id === day.id);
+    if (dayIndex < 0) return false;
+    for (const candidateDay of trip.days) {
+      for (const stay of candidateDay.items) {
+        if (!this.isAccommodationStay(stay)) continue;
+        const arrivalIndex = trip.days.findIndex((d) => d.id === stay.day_id);
+        const checkoutIndex = trip.days.findIndex((d) => d.id === stay.stay_checkout_day_id);
+        if (arrivalIndex < 0 || checkoutIndex < 0) continue;
+        if (dayIndex > arrivalIndex && dayIndex < checkoutIndex) return true;
+      }
+    }
+    return false;
+  }
+
+  dayStartTimeDisplay(day: TripDay): string {
+    return day.day_start_time || '09:00';
+  }
+
+  /**
+   * Persist a new day_start_time. Empty string clears it (back to default).
+   * Sends a full TripDay payload because the backend's PUT requires `label`.
+   */
+  setDayStartTime(day: TripDay, value: string | null) {
+    const cleaned = (value ?? '').trim();
+    if (cleaned && !/^([01]\d|2[0-3]):[0-5]\d$/.test(cleaned)) return;
+    const newValue = cleaned || null;
+    if ((day.day_start_time ?? null) === newValue) return;
+    const tripId = this.trip()?.id;
+    if (tripId == null) return;
+
+    const payload: Partial<TripDay> = {
+      id: day.id,
+      label: day.label,
+      dt: day.dt,
+      notes: day.notes,
+      day_start_time: newValue ?? undefined,
+    };
+    this.apiService.putTripDay(payload, tripId).subscribe((updated) => {
+      this.trip.update((t) => {
+        if (!t) return null;
+        const days = t.days.map((d) => (d.id === updated.id ? { ...d, ...updated } : d));
+        return { ...t, days };
+      });
     });
   }
 

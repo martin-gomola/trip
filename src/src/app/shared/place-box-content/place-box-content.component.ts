@@ -182,6 +182,14 @@ export class PlaceBoxContentComponent implements OnChanges {
     this.openNavigationEmitter.emit();
   }
 
+  googleMapsUrl(): string {
+    const place = this.selectedPlace;
+    if (!place) return '';
+    const namedQuery = [place.name, place.place].filter(Boolean).join(' ').trim();
+    const query = namedQuery || `${place.lat},${place.lng}`;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  }
+
   openUrl() {
     const url = this.externalUrl();
     if (!url) return;

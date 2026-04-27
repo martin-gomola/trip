@@ -726,6 +726,7 @@ class TripDayBase(SQLModel):
     label: str
     dt: date | None = None
     notes: str | None = None
+    day_start_time: TimeString | None = None
 
 
 class TripDay(TripDayBase, table=True):
@@ -751,6 +752,7 @@ class TripDayRead(TripDayBase):
             label=obj.label,
             items=[TripItemRead.serialize(item) for item in obj.items],
             notes=obj.notes,
+            day_start_time=obj.day_start_time,
         )
 
 
@@ -771,11 +773,22 @@ class TripItemBase(SQLModel):
     gpx: str | None = None
     stay_checkout_day_id: int | None = None
     stay_checkout_time: TimeString | None = None
+    duration_minutes: int | None = None
 
     @field_validator("time", mode="before")
     def pad_mm_if_needed(cls, value: str) -> str:
         if re.fullmatch(r"^([01]\d|2[0-3])$", value):  # If it's just HH
             return f"{value}:00"
+        return value
+
+    @field_validator("duration_minutes")
+    def clamp_duration_minutes(cls, value: int | None) -> int | None:
+        if value is None:
+            return None
+        if value < 0:
+            raise ValueError("duration_minutes must be >= 0")
+        if value > 1440:
+            raise ValueError("duration_minutes must be <= 1440 (24 hours)")
         return value
 
 
@@ -847,6 +860,7 @@ class TripItemRead(TripItemBase):
             paid_by=obj.paid_by,
             stay_checkout_day_id=obj.stay_checkout_day_id,
             stay_checkout_time=obj.stay_checkout_time,
+            duration_minutes=obj.duration_minutes,
             attachments=[TripAttachmentRead.serialize(att) for att in obj.attachments],
         )
 
@@ -898,6 +912,7 @@ class TripShareItemRead(TripItemBase):
             paid_by=None,
             stay_checkout_day_id=obj.stay_checkout_day_id,
             stay_checkout_time=obj.stay_checkout_time,
+            duration_minutes=obj.duration_minutes,
         )
 
 
@@ -913,6 +928,7 @@ class TripShareDayRead(TripDayBase):
             label=obj.label,
             items=[TripShareItemRead.serialize(item) for item in obj.items],
             notes=obj.notes,
+            day_start_time=obj.day_start_time,
         )
 
 
