@@ -1,51 +1,126 @@
 <section class="mx-auto max-w-6xl space-y-6" [formGroup]="placeForm">
   <div class="space-y-4">
-    <h2 class="text-sm font-semibold text-primary-900 dark:text-primary-50">Mandatory Information</h2>
+    <div class="flex flex-wrap items-center gap-2">
+      <h2 class="text-sm font-semibold text-primary-900 dark:text-primary-50">Mandatory Information</h2>
+      <span
+        class="inline-flex items-center rounded bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700 ring-1 ring-red-200 dark:bg-red-950/40 dark:text-red-200 dark:ring-red-800">
+        Required fields are marked *
+      </span>
+    </div>
 
     <div class="grid grid-cols-2 gap-4">
       <div class="relative col-span-2">
         <p-floatlabel variant="in">
-          <input id="name" formControlName="name" pInputText autofocus fluid (keydown.enter)="completionSearchText()" />
-          <label for="name">Name</label>
+          <input
+            id="name"
+            formControlName="name"
+            pInputText
+            autofocus
+            fluid
+            aria-required="true"
+            aria-describedby="name-error"
+            [class.p-invalid]="isFieldInvalid('name')"
+            (keydown.enter)="completionSearchText()" />
+          <label for="name">Name <span class="font-bold text-red-600">*</span></label>
         </p-floatlabel>
         <div class="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg">
-          <p-button [disabled]="!placeForm.get('name')!.value" text label="Query" icon="pi pi-sparkles" size="small"
-            pTooltip="Complete using Provider API" (click)="completionSearchText()"
+          <p-button
+            [disabled]="!placeForm.get('name')!.value"
+            text
+            label="Query"
+            icon="pi pi-sparkles"
+            size="small"
+            pTooltip="Complete using Provider API"
+            (click)="completionSearchText()"
             class="cursor-pointer text-primary-400 hover:text-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" />
         </div>
+        @if (isFieldInvalid('name')) {
+          <p id="name-error" class="mt-1 text-xs font-medium text-red-600">{{ fieldError('name', 'Name') }}</p>
+        }
       </div>
 
-      <p-floatlabel variant="in">
-        <input id="lat" formControlName="lat" pInputText fluid />
-        <label for="lat">Latitude</label>
-      </p-floatlabel>
+      <div>
+        <p-floatlabel variant="in">
+          <input
+            id="lat"
+            formControlName="lat"
+            pInputText
+            fluid
+            aria-required="true"
+            aria-describedby="lat-error"
+            [class.p-invalid]="isFieldInvalid('lat')" />
+          <label for="lat">Latitude <span class="font-bold text-red-600">*</span></label>
+        </p-floatlabel>
+        @if (isFieldInvalid('lat')) {
+          <p id="lat-error" class="mt-1 text-xs font-medium text-red-600">{{ fieldError('lat', 'Latitude') }}</p>
+        }
+      </div>
 
-      <p-floatlabel variant="in">
-        <input id="lng" formControlName="lng" pInputText fluid />
-        <label for="lng">Longitude</label>
-      </p-floatlabel>
+      <div>
+        <p-floatlabel variant="in">
+          <input
+            id="lng"
+            formControlName="lng"
+            pInputText
+            fluid
+            aria-required="true"
+            aria-describedby="lng-error"
+            [class.p-invalid]="isFieldInvalid('lng')" />
+          <label for="lng">Longitude <span class="font-bold text-red-600">*</span></label>
+        </p-floatlabel>
+        @if (isFieldInvalid('lng')) {
+          <p id="lng-error" class="mt-1 text-xs font-medium text-red-600">{{ fieldError('lng', 'Longitude') }}</p>
+        }
+      </div>
     </div>
 
     <div class="grid md:grid-cols-4 items-start gap-4">
       <div class="md:col-span-3">
         <p-floatlabel variant="in">
-          <input id="place" aria-describedby="username-help" formControlName="place" pInputText fluid />
-          <label for="place">Place</label>
+          <input
+            id="place"
+            aria-describedby="place-help place-error"
+            formControlName="place"
+            pInputText
+            fluid
+            aria-required="true"
+            [class.p-invalid]="isFieldInvalid('place')" />
+          <label for="place">Place <span class="font-bold text-red-600">*</span></label>
         </p-floatlabel>
-        <span class="select-none text-xs text-primary-500">Supports <i>google.com/maps/place/</i> and
-          <i>https://maps.app.goo.gl</i> (Google API Key required)</span>
+        <span id="place-help" class="select-none text-xs text-primary-500"
+          >Supports <i>google.com/maps/place/</i> and <i>https://maps.app.goo.gl</i> (Google API Key required)</span
+        >
+        @if (isFieldInvalid('place')) {
+          <p id="place-error" class="mt-1 text-xs font-medium text-red-600">{{ fieldError('place', 'Place') }}</p>
+        }
       </div>
 
-      <p-floatlabel variant="in">
-        <p-select [options]="(categories$ | async) || []" optionValue="id" optionLabel="name" appendTo="body"
-          [loading]="!(categories$ | async)?.length" inputId="category" formControlName="category" [checkmark]="true"
-          fluid>
-          <ng-template let-category #item>
-            <div class="capitalize whitespace-normal">{{ category.name }}</div>
-          </ng-template>
-        </p-select>
-        <label for="category">Category</label>
-      </p-floatlabel>
+      <div>
+        <p-floatlabel variant="in">
+          <p-select
+            [options]="(categories$ | async) || []"
+            optionValue="id"
+            optionLabel="name"
+            appendTo="body"
+            [loading]="!(categories$ | async)?.length"
+            inputId="category"
+            formControlName="category"
+            [checkmark]="true"
+            aria-required="true"
+            aria-describedby="category-error"
+            fluid>
+            <ng-template let-category #item>
+              <div class="capitalize whitespace-normal">{{ category.name }}</div>
+            </ng-template>
+          </p-select>
+          <label for="category">Category <span class="font-bold text-red-600">*</span></label>
+        </p-floatlabel>
+        @if (isFieldInvalid('category')) {
+          <p id="category-error" class="mt-1 text-xs font-medium text-red-600">
+            {{ fieldError('category', 'Category') }}
+          </p>
+        }
+      </div>
     </div>
   </div>
 
@@ -56,38 +131,46 @@
         class="flex flex-col items-center justify-center gap-2 p-4 bg-primary-50 dark:bg-black rounded-lg border border-primary-200 dark:border-primary-700">
         <div class="relative group">
           @if (placeForm.get('image_id')?.value || placeForm.get('image')?.value) {
-          <img [src]="placeForm.get('image')?.value || '/favicon.png'"
-            class="size-24 object-cover rounded-lg shadow ring-2 ring-primary-200 dark:ring-primary-700 cursor-pointer transition-all group-hover:ring-primary-400"
-            (click)="imageInput.click()" />
-          <div
-            class="absolute inset-0 bg-black/60 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-            (click)="imageInput.click()">
-            <i class="pi pi-camera text-white text-2xl"></i>
-          </div>
-          @if (!placeForm.get('image_id')?.value) {
-          <button type="button"
-            class="cursor-pointer absolute -top-2 -right-2 size-7 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-full shadow transition"
-            (click)="clearImage(); $event.stopPropagation()">
-            <i class="pi pi-times text-xs"></i>
-          </button>
-          }
+            <img
+              [src]="placeForm.get('image')?.value || '/favicon.png'"
+              class="size-24 object-cover rounded-lg shadow ring-2 ring-primary-200 dark:ring-primary-700 cursor-pointer transition-all group-hover:ring-primary-400"
+              (click)="imageInput.click()" />
+            <div
+              class="absolute inset-0 bg-black/60 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              (click)="imageInput.click()">
+              <i class="pi pi-camera text-white text-2xl"></i>
+            </div>
+            @if (!placeForm.get('image_id')?.value) {
+              <button
+                type="button"
+                class="cursor-pointer absolute -top-2 -right-2 size-7 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-full shadow transition"
+                (click)="clearImage(); $event.stopPropagation()">
+                <i class="pi pi-times text-xs"></i>
+              </button>
+            }
           } @else {
-          <div
-            class="size-24 flex items-center justify-center bg-primary-100 dark:bg-primary-900 rounded-lg border-2 border-dashed border-primary-300 dark:border-primary-600 cursor-pointer transition hover:border-primary-400"
-            (click)="imageInput.click()">
-            <i class="pi pi-image text-3xl text-primary-400"></i>
-          </div>
+            <div
+              class="size-24 flex items-center justify-center bg-primary-100 dark:bg-primary-900 rounded-lg border-2 border-dashed border-primary-300 dark:border-primary-600 cursor-pointer transition hover:border-primary-400"
+              (click)="imageInput.click()">
+              <i class="pi pi-image text-3xl text-primary-400"></i>
+            </div>
           }
           <input type="file" accept="image/*" #imageInput class="hidden" (change)="onImageSelected($event)" />
         </div>
-        <p-button icon="pi pi-link" label="URL" severity="secondary" size="small" text
+        <p-button
+          icon="pi pi-link"
+          label="URL"
+          severity="secondary"
+          size="small"
+          text
           (click)="showImageUrlDialog = true" />
       </div>
 
       <div class="space-y-4">
         <div
           class="flex flex-wrap gap-4 p-3 bg-primary-50 dark:bg-black/20 rounded-lg border border-primary-200 dark:border-primary-700">
-          <button (click)="toggleCheckbox('allowdog')"
+          <button
+            (click)="toggleCheckbox('allowdog')"
             class="select-none cursor-pointer inline-flex items-center gap-2 h-8 w-36 max-w-[25vw] px-3 rounded-lg text-sm font-medium transition-all"
             [class]="
               placeForm.get('allowdog')?.value
@@ -95,14 +178,15 @@
                 : 'bg-primary-100 dark:bg-black text-primary-700 dark:text-primary-300 hover:bg-primary-200 dark:hover:bg-primary-800'
             ">
             @if (placeForm.get('allowdog')?.value) {
-            <i class="pi pi-check text-xs"></i>
+              <i class="pi pi-check text-xs"></i>
             } @else {
-            <span>🐶</span>
+              <span>🐶</span>
             }
             <span class="truncate">Dog-friendly</span>
           </button>
 
-          <button (click)="toggleCheckbox('restroom')"
+          <button
+            (click)="toggleCheckbox('restroom')"
             class="select-none cursor-pointer inline-flex items-center gap-2 h-8 w-24 max-w-[25vw] px-3 rounded-lg text-sm font-medium transition-all"
             [class]="
               placeForm.get('restroom')?.value
@@ -110,14 +194,15 @@
                 : 'bg-primary-100 dark:bg-black text-primary-700 dark:text-primary-300 hover:bg-primary-200 dark:hover:bg-primary-800'
             ">
             @if (placeForm.get('restroom')?.value) {
-            <i class="pi pi-check text-xs"></i>
+              <i class="pi pi-check text-xs"></i>
             } @else {
-            <span>🚽</span>
+              <span>🚽</span>
             }
             <span class="truncate">Toilets</span>
           </button>
 
-          <button (click)="toggleCheckbox('visited')"
+          <button
+            (click)="toggleCheckbox('visited')"
             class="select-none cursor-pointer inline-flex items-center gap-2 h-8 w-24 max-w-[25vw] px-3 rounded-lg text-sm font-medium transition-all"
             [class]="
               placeForm.get('visited')?.value
@@ -125,89 +210,146 @@
                 : 'bg-primary-100 dark:bg-black text-primary-700 dark:text-primary-300 hover:bg-primary-200 dark:hover:bg-primary-800'
             ">
             @if (placeForm.get('visited')?.value) {
-            <i class="pi pi-check text-xs"></i>
+              <i class="pi pi-check text-xs"></i>
             } @else {
-            <i class="pi pi-eye text-xs"></i>
+              <i class="pi pi-eye text-xs"></i>
             }
             <span class="truncate">Visited</span>
           </button>
 
           <div class="flex items-center gap-2">
             @if (placeForm.get('gpx')?.value) {
-            <p-button icon="pi pi-check" styleClass="hover:border-red-500! hover:bg-red-500! dark:hover:bg-red-900/40!"
-              label="GPX" severity="success" size="small" (click)="clearGPX()" />
+              <p-button
+                icon="pi pi-check"
+                styleClass="hover:border-red-500! hover:bg-red-500! dark:hover:bg-red-900/40!"
+                label="GPX"
+                severity="success"
+                size="small"
+                (click)="clearGPX()" />
             } @else {
-            <p-button icon="pi pi-paperclip" label="GPX" severity="secondary" size="small" (click)="gpxInput.click()" />
+              <p-button
+                icon="pi pi-paperclip"
+                label="GPX"
+                severity="secondary"
+                size="small"
+                (click)="gpxInput.click()" />
             }
             <input type="file" accept=".gpx" #gpxInput class="hidden" (change)="onGPXSelected($event)" />
           </div>
         </div>
         @if (isAccommodationSelected()) {
-        <div class="grid lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)] gap-4 items-start">
-          <fieldset
-            class="self-start rounded-lg border border-primary-200 bg-white p-3 dark:border-primary-700 dark:bg-primary-950/30">
-            <legend class="sr-only">Accommodation times</legend>
-            <div class="mb-3 flex items-center gap-2 text-primary-600 dark:text-primary-300">
-              <i class="pi pi-building text-sm"></i>
-              <span class="text-sm font-semibold">Accommodation</span>
-            </div>
+          <div class="grid lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)] gap-4 items-start">
+            <fieldset
+              class="self-start rounded-lg border border-primary-200 bg-white p-3 dark:border-primary-700 dark:bg-primary-950/30">
+              <legend class="sr-only">Accommodation times</legend>
+              <div class="mb-3 flex items-center gap-2 text-primary-600 dark:text-primary-300">
+                <i class="pi pi-building text-sm"></i>
+                <span class="text-sm font-semibold">Accommodation</span>
+              </div>
 
-            <div class="grid sm:grid-cols-2 gap-3">
+              <div class="grid sm:grid-cols-2 gap-3">
+                <p-floatlabel variant="in">
+                  <input id="checkin_time" type="time" formControlName="checkin_time" pInputText fluid />
+                  <label for="checkin_time">Check-in</label>
+                </p-floatlabel>
+
+                <p-floatlabel variant="in">
+                  <input id="checkout_time" type="time" formControlName="checkout_time" pInputText fluid />
+                  <label for="checkout_time">Check-out</label>
+                </p-floatlabel>
+              </div>
+            </fieldset>
+
+            <div class="grid grid-cols-[1fr_6rem] gap-3 self-start">
               <p-floatlabel variant="in">
-                <input id="checkin_time" type="time" formControlName="checkin_time" pInputText fluid />
-                <label for="checkin_time">Check-in</label>
+                <p-inputnumber
+                  id="price"
+                  formControlName="price"
+                  mode="decimal"
+                  [minFractionDigits]="0"
+                  [maxFractionDigits]="2"
+                  fluid />
+                <label for="price">Price</label>
               </p-floatlabel>
 
               <p-floatlabel variant="in">
-                <input id="checkout_time" type="time" formControlName="checkout_time" pInputText fluid />
-                <label for="checkout_time">Check-out</label>
+                <input id="price_currency" formControlName="price_currency" placeholder="€" pInputText fluid />
+                <label for="price_currency">Currency</label>
               </p-floatlabel>
             </div>
-          </fieldset>
-
-          <p-floatlabel variant="in" class="block self-start">
-            <p-inputnumber id="price" formControlName="price" mode="decimal" [minFractionDigits]="0"
-              [maxFractionDigits]="2" fluid />
-            <label for="price">Price</label>
-          </p-floatlabel>
-        </div>
+          </div>
         } @else {
-        <div class="grid lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)] gap-4 items-start">
-          <fieldset
-            class="self-start rounded-lg border border-primary-200 bg-white p-3 dark:border-primary-700 dark:bg-primary-950/30">
-            <legend class="sr-only">Duration</legend>
-            <div class="mb-3 flex items-center gap-2 text-primary-600 dark:text-primary-300">
-              <i class="pi pi-clock text-sm"></i>
-              <span class="text-sm font-semibold">Duration</span>
+          <div class="grid lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)] gap-4 items-start">
+            <fieldset
+              class="self-start rounded-lg border border-primary-200 bg-white p-3 dark:border-primary-700 dark:bg-primary-950/30">
+              <legend class="sr-only">Duration</legend>
+              <div class="mb-3 flex items-center gap-2 text-primary-600 dark:text-primary-300">
+                <i class="pi pi-clock text-sm"></i>
+                <span class="text-sm font-semibold">Duration</span>
+              </div>
+
+              <div class="grid sm:grid-cols-3 gap-3">
+                <p-floatlabel variant="in">
+                  <p-inputnumber
+                    inputId="duration_days"
+                    formControlName="duration_days"
+                    mode="decimal"
+                    [showButtons]="true"
+                    [min]="0"
+                    [maxFractionDigits]="0"
+                    [useGrouping]="false"
+                    fluid />
+                  <label for="duration_days">Days</label>
+                </p-floatlabel>
+
+                <p-floatlabel variant="in">
+                  <p-inputnumber
+                    inputId="duration_hours"
+                    formControlName="duration_hours"
+                    mode="decimal"
+                    [showButtons]="true"
+                    [min]="0"
+                    [max]="23"
+                    [maxFractionDigits]="0"
+                    [useGrouping]="false"
+                    fluid />
+                  <label for="duration_hours">Hours</label>
+                </p-floatlabel>
+
+                <p-floatlabel variant="in">
+                  <p-inputnumber
+                    inputId="duration_minutes"
+                    formControlName="duration_minutes"
+                    mode="decimal"
+                    [showButtons]="true"
+                    [min]="0"
+                    [max]="59"
+                    [maxFractionDigits]="0"
+                    [useGrouping]="false"
+                    fluid />
+                  <label for="duration_minutes">Minutes</label>
+                </p-floatlabel>
+              </div>
+            </fieldset>
+
+            <div class="grid grid-cols-[1fr_6rem] gap-3 self-start">
+              <p-floatlabel variant="in">
+                <p-inputnumber
+                  id="price"
+                  formControlName="price"
+                  mode="decimal"
+                  [minFractionDigits]="0"
+                  [maxFractionDigits]="2"
+                  fluid />
+                <label for="price">Price</label>
+              </p-floatlabel>
+
+              <p-floatlabel variant="in">
+                <input id="price_currency_duration" formControlName="price_currency" placeholder="€" pInputText fluid />
+                <label for="price_currency_duration">Currency</label>
+              </p-floatlabel>
             </div>
-
-            <div class="grid sm:grid-cols-3 gap-3">
-              <p-floatlabel variant="in">
-                <p-inputnumber inputId="duration_days" formControlName="duration_days" mode="decimal"
-                  [showButtons]="true" [min]="0" [maxFractionDigits]="0" [useGrouping]="false" fluid />
-                <label for="duration_days">Days</label>
-              </p-floatlabel>
-
-              <p-floatlabel variant="in">
-                <p-inputnumber inputId="duration_hours" formControlName="duration_hours" mode="decimal"
-                  [showButtons]="true" [min]="0" [max]="23" [maxFractionDigits]="0" [useGrouping]="false" fluid />
-                <label for="duration_hours">Hours</label>
-              </p-floatlabel>
-
-              <p-floatlabel variant="in">
-                <p-inputnumber inputId="duration_minutes" formControlName="duration_minutes" mode="decimal"
-                  [showButtons]="true" [min]="0" [max]="59" [maxFractionDigits]="0" [useGrouping]="false" fluid />
-                <label for="duration_minutes">Minutes</label>
-              </p-floatlabel>
-            </div>
-          </fieldset>
-
-          <p-floatlabel variant="in" class="block self-start">
-            <p-inputnumber id="price" formControlName="price" mode="decimal" [minFractionDigits]="0"
-              [maxFractionDigits]="2" fluid />
-            <label for="price">Price</label>
-          </p-floatlabel>
-        </div>
+          </div>
         }
 
         <p-floatlabel variant="in">
@@ -216,25 +358,54 @@
         </p-floatlabel>
 
         <div class="relative">
-          <textarea pTextarea id="description" placeholder="Description" formControlName="description" rows="4"
-            #descriptionInput fluid class="pr-12!"></textarea>
+          <textarea
+            pTextarea
+            id="description"
+            placeholder="Description"
+            formControlName="description"
+            rows="4"
+            #descriptionInput
+            fluid
+            class="pr-12!"></textarea>
           @if (descriptionInput.value) {
-          <p-button text icon="pi pi-times" severity="danger" class="absolute right-2 top-2"
-            (click)="placeForm.get('description')?.setValue(''); placeForm.markAsDirty()" pTooltip="Clear" />
+            <p-button
+              text
+              icon="pi pi-times"
+              severity="danger"
+              class="absolute right-2 top-2"
+              (click)="placeForm.get('description')?.setValue(''); placeForm.markAsDirty()"
+              pTooltip="Clear" />
           }
         </div>
       </div>
     </div>
   </div>
 
-  <div class="flex justify-end gap-3 pt-4 border-t border-primary-200 dark:border-primary-700">
-    <p-button [label]="placeForm.get('id')?.value !== -1 ? 'Update' : 'Create'" icon="pi pi-check"
-      [disabled]="!placeForm.dirty || !placeForm.valid" (click)="closeDialog()" />
+  <div
+    class="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-primary-200 dark:border-primary-700">
+    @if (!placeForm.valid) {
+      <p class="text-xs font-medium text-primary-500 dark:text-primary-400">
+        Fill all fields marked <span class="font-bold text-red-600">*</span> to create this place.
+      </p>
+    } @else {
+      <span></span>
+    }
+    <p-button
+      [label]="placeForm.get('id')?.value !== -1 ? 'Update' : 'Create'"
+      icon="pi pi-check"
+      [disabled]="!placeForm.dirty || !placeForm.valid"
+      (click)="closeDialog()" />
   </div>
 </section>
 
-<p-dialog [(visible)]="showImageUrlDialog" appendTo="body" header="Add Image URL" [modal]="true"
-  [style]="{ width: '450px' }" [draggable]="false" [resizable]="false">
+<p-dialog
+  [(visible)]="showImageUrlDialog"
+  appendTo="body"
+  header="Add Image URL"
+  [modal]="true"
+  [style]="{ width: '450px' }"
+  [draggable]="false"
+  [resizable]="false">
   <div class="py-4">
     <p-floatlabel variant="in">
       <input id="imageUrl" type="url" [(ngModel)]="imageUrl" pInputText fluid />
@@ -242,7 +413,10 @@
     </p-floatlabel>
   </div>
   <ng-template #footer>
-    <p-button label="Cancel" severity="secondary" [outlined]="true"
+    <p-button
+      label="Cancel"
+      severity="secondary"
+      [outlined]="true"
       (click)="showImageUrlDialog = false; imageUrl = ''" />
     <p-button label="Add" [disabled]="!imageUrl" (click)="setImageFromUrl()" />
   </ng-template>

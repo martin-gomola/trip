@@ -1,12 +1,40 @@
-import { DayViewModel, Trip, ViewTripItem } from '../../types/trip';
+import { DayViewModel, PrintMapProvider, Trip, ViewTripItem } from '../../types/trip';
 import { Place } from '../../types/poi';
 import { computeDistLatLng } from '../utils';
 
 const DANGER_THREE = ['brod', 'koniec cesty', 'extrem', 'extrém', 'zosuv', 'lavina'];
-const DANGER_TWO = ['strmé', 'strma', 'štrk', 'strk', 'nebezpečné', 'nebezpecne', 'serpentíny', 'serpentiny', 'rozbit', 'úzka', 'uzka', 'diery'];
+const DANGER_TWO = [
+  'strmé',
+  'strma',
+  'štrk',
+  'strk',
+  'nebezpečné',
+  'nebezpecne',
+  'serpentíny',
+  'serpentiny',
+  'rozbit',
+  'úzka',
+  'uzka',
+  'diery',
+];
 const OFFROAD = ['offroad', 'off-road', 'nespevnen', 'poľná', 'polna', 'lesná cesta', 'lesna cesta'];
 const FUEL = ['fuel', 'benzín', 'benzin', 'čerpacia', 'cerpacia', 'pumpa', 'omv', 'shell', 'slovnaft'];
-const FOOD = ['food', 'drink', 'restaurant', 'reštaur', 'restaur', 'bistro', 'kaviareň', 'kaviaren', 'café', 'cafe', 'jedlo', 'obed', 'večera', 'vecera'];
+const FOOD = [
+  'food',
+  'drink',
+  'restaurant',
+  'reštaur',
+  'restaur',
+  'bistro',
+  'kaviareň',
+  'kaviaren',
+  'café',
+  'cafe',
+  'jedlo',
+  'obed',
+  'večera',
+  'vecera',
+];
 const PHOTO = ['photo', 'foto', 'vyhliadka', 'viewpoint', 'hrad', 'kostol', 'panoráma', 'panorama'];
 const PARKING = ['parking', 'parkovisko', 'parkovanie', '🅿'];
 
@@ -22,6 +50,7 @@ export interface RoadbookRow {
   symbol: string;
   title: string;
   details: string;
+  mapsUrl?: string;
   time?: string;
   warning?: boolean;
 }
@@ -64,7 +93,7 @@ export const ROADBOOK_LEGEND_GROUPS: RoadbookLegendGroup[] = [
   },
 ];
 
-export function roadbookRowsForDay(group: DayViewModel): RoadbookRow[] {
+export function roadbookRowsForDay(group: DayViewModel, mapProvider: PrintMapProvider = 'mapy'): RoadbookRow[] {
   const rows: RoadbookRow[] = [];
   let totalKm = 0;
   let prevCoords: { lat: number; lng: number } | null = null;
@@ -75,7 +104,7 @@ export function roadbookRowsForDay(group: DayViewModel): RoadbookRow[] {
     const cap = prevCoords && coords ? bearingDegrees(prevCoords, coords) : undefined;
 
     totalKm += legKm;
-    rows.push(itemToRoadbookRow(item, index, group.items.length, totalKm, legKm, cap));
+    rows.push(itemToRoadbookRow(item, index, group.items.length, totalKm, legKm, cap, mapProvider));
     if (coords) prevCoords = coords;
   });
 
@@ -87,10 +116,34 @@ export function roadbookDayTotalKm(group: DayViewModel): string {
   return rows.length ? rows[rows.length - 1].totalKm : '0.0';
 }
 
-export function roadbookEmergencyMapsUrl(trip: Trip | null): string {
-  const firstCoordinate = trip?.days.flatMap((day) => day.items).map(itemCoordinate).find(Boolean);
-  if (!firstCoordinate) return 'https://www.google.com/maps';
-  return `https://www.google.com/maps/search/?api=1&query=${firstCoordinate.lat},${firstCoordinate.lng}`;
+export function roadbookEmergencyMapsUrl(trip: Trip | null, mapProvider: PrintMapProvider = 'mapy'): string {
+  const firstCoordinate = trip?.days
+    .flatMap((day) => day.items)
+    .map(itemCoordinate)
+    .find(Boolean);
+  if (!firstCoordinate) return fallbackMapUrl(mapProvider);
+  return mapProviderUrl(firstCoordinate.lat, firstCoordinate.lng, null, mapProvider);
+}
+
+export function googleMapsSearchUrl(lat?: number | null, lng?: number | null, label?: string | null): string {
+  if (lat == null || lng == null) return 'https://www.google.com/maps';
+  const query = label ? `${lat},${lng} (${label})` : `${lat},${lng}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+export function mapyMapsUrl(lat?: number | null, lng?: number | null): string {
+  if (lat == null || lng == null) return 'https://mapy.com';
+  const center = `${formatUrlCoordinate(lng)},${formatUrlCoordinate(lat)}`;
+  return `https://mapy.com/fnc/v1/showmap?mapset=outdoor&center=${center}&zoom=16&marker=true`;
+}
+
+export function mapProviderUrl(
+  lat?: number | null,
+  lng?: number | null,
+  label?: string | null,
+  mapProvider: PrintMapProvider = 'mapy',
+): string {
+  return mapProvider === 'google' ? googleMapsSearchUrl(lat, lng, label) : mapyMapsUrl(lat, lng);
 }
 
 function itemToRoadbookRow(
@@ -100,6 +153,7 @@ function itemToRoadbookRow(
   totalKm: number,
   partialKm: number,
   cap?: number,
+  mapProvider: PrintMapProvider = 'mapy',
 ): RoadbookRow {
   const symbol = itemSymbol(item, index, itemCount);
   const details = itemDetails(item, cap);
@@ -110,9 +164,24 @@ function itemToRoadbookRow(
     symbol,
     title: itemTitle(item, index, itemCount, cap),
     details,
+    mapsUrl: itemMapsUrl(item, mapProvider),
     time: item.time,
     warning: symbol.includes('!') || symbol === 'OFF',
   };
+}
+
+function itemMapsUrl(item: ViewTripItem, mapProvider: PrintMapProvider): string | undefined {
+  const coords = itemCoordinate(item);
+  if (!coords) return undefined;
+  return mapProviderUrl(coords.lat, coords.lng, primaryName(item), mapProvider);
+}
+
+function fallbackMapUrl(mapProvider: PrintMapProvider): string {
+  return mapProvider === 'google' ? 'https://www.google.com/maps' : 'https://mapy.com';
+}
+
+function formatUrlCoordinate(value: number): string {
+  return value.toFixed(6).replace(/\.?0+$/, '');
 }
 
 function itemTitle(item: ViewTripItem, index: number, itemCount: number, cap?: number): string {

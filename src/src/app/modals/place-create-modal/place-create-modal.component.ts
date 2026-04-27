@@ -103,6 +103,7 @@ export class PlaceCreateModalComponent {
       duration_hours: [null, [Validators.min(0), Validators.max(23), Validators.pattern('\\d+')]],
       duration_minutes: [null, [Validators.min(0), Validators.max(59), Validators.pattern('\\d+')]],
       price: null,
+      price_currency: null,
       allowdog: false,
       restroom: false,
       visited: false,
@@ -167,7 +168,10 @@ export class PlaceCreateModalComponent {
   }
 
   closeDialog() {
-    if (!this.placeForm.valid) return;
+    if (!this.placeForm.valid) {
+      this.placeForm.markAllAsTouched();
+      return;
+    }
     let ret = this.placeForm.value;
     ret['category_id'] = ret['category'];
     delete ret['category'];
@@ -175,6 +179,7 @@ export class PlaceCreateModalComponent {
     delete ret['duration_hours'];
     delete ret['duration_minutes'];
     ret['duration'] = ret['duration'] === null || ret['duration'] === '' ? null : +ret['duration'];
+    ret['price_currency'] = ret['price'] ? ret['price_currency']?.trim() || null : null;
     if (this.isAccommodationSelected()) {
       ret['checkin_time'] = ret['checkin_time'] || null;
       ret['checkout_time'] = ret['checkout_time'] || null;
@@ -342,6 +347,21 @@ export class PlaceCreateModalComponent {
   toggleCheckbox(k: string) {
     this.placeForm.get(k)?.setValue(!this.placeForm.get(k)?.value);
     this.placeForm.markAsDirty();
+  }
+
+  isFieldInvalid(controlName: string): boolean {
+    const control = this.placeForm.get(controlName);
+    return !!control && control.invalid && (control.touched || control.dirty);
+  }
+
+  fieldError(controlName: string, label: string): string {
+    const control = this.placeForm.get(controlName);
+    if (!control?.errors) return '';
+    if (control.errors['required']) return `${label} is required.`;
+    if (control.errors['pattern']) return `${label} has an invalid format.`;
+    if (control.errors['min']) return `${label} is below the allowed value.`;
+    if (control.errors['max']) return `${label} is above the allowed value.`;
+    return `${label} is invalid.`;
   }
 
   isAccommodationSelected(): boolean {

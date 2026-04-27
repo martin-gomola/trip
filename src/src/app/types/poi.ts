@@ -21,6 +21,7 @@ export interface Place {
   image?: string;
   image_id?: number;
   price?: number;
+  price_currency?: string;
   description?: string;
   url?: string;
   duration?: number;

@@ -64,6 +64,7 @@ export interface TripItem {
   lat?: number;
   lng?: number;
   price?: number;
+  price_currency?: string;
   day_id: number;
   status?: string | TripStatus;
   image?: string;
@@ -90,6 +91,7 @@ export interface FlattenedTripItem {
   comment?: string;
   place?: Place;
   price?: number;
+  price_currency?: string;
   lat?: number;
   lng?: number;
   day_id: number;
@@ -110,7 +112,7 @@ export interface TripMember {
   invited_at: string;
   joined_at?: string;
 
-  balance?: number; // Injected
+  balance?: Record<string, number>; // Injected
 }
 
 export interface TripInvitation extends TripBase {
@@ -137,12 +139,15 @@ export interface ChecklistItem {
   checked?: boolean;
 }
 
+export type PrintMapProvider = 'mapy' | 'google';
+
 export interface PrintOptions {
   days: Set<number>;
   props: Set<string>;
   places: boolean;
   notes: boolean;
   metadata: boolean;
+  mapProvider: PrintMapProvider;
 }
 
 export interface ViewTripItem extends TripItem {
@@ -165,6 +170,7 @@ export interface DayViewModel {
   stats: {
     count: number;
     cost: number;
+    costSummary?: string;
     hasPlaces: boolean;
   };
 }

@@ -501,6 +501,7 @@ class PlaceBase(SQLModel):
     allowdog: bool | None = None
     description: str | None = None
     price: float | None = None
+    price_currency: str | None = None
     duration: int | None = None
     checkin_time: TimeString | None = None
     checkout_time: TimeString | None = None
@@ -568,6 +569,7 @@ class PlaceRead(PlaceBase):
             allowdog=obj.allowdog,
             description=obj.description,
             price=obj.price,
+            price_currency=obj.price_currency,
             duration=obj.duration,
             checkin_time=obj.checkin_time,
             checkout_time=obj.checkout_time,
@@ -763,6 +765,7 @@ class TripItemBase(SQLModel):
     comment: str | None = None
     lat: float | None = None
     price: float | None = None
+    price_currency: str | None = None
     lng: float | None = None
     status: TripItemStatusEnum | None = None
     gpx: str | None = None
@@ -834,6 +837,7 @@ class TripItemRead(TripItemBase):
             lat=obj.lat,
             lng=obj.lng,
             price=obj.price,
+            price_currency=obj.price_currency,
             day_id=obj.day_id,
             status=obj.status,
             place=PlaceRead.serialize(obj.place) if obj.place else None,
@@ -884,6 +888,7 @@ class TripShareItemRead(TripItemBase):
             lat=obj.lat,
             lng=obj.lng,
             price=obj.price,
+            price_currency=obj.price_currency,
             day_id=obj.day_id,
             status=obj.status,
             place=PlaceRead.serialize(obj.place) if obj.place else None,

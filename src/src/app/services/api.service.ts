@@ -127,10 +127,23 @@ export class ApiService {
     return this.httpClient.get<Trip>(`${this.apiBaseUrl}/trips/${id}`);
   }
 
-  getTripBalance(id: number): Observable<{ [user: string]: number }> {
-    return this.httpClient.get<{ [user: string]: number }>(`${this.apiBaseUrl}/trips/${id}/balance`, {
+  getTripBalance(id: number): Observable<{ [user: string]: Record<string, number> }> {
+    return this.httpClient.get<{ [user: string]: Record<string, number> }>(`${this.apiBaseUrl}/trips/${id}/balance`, {
       headers: { ignore_not_found: 'true' },
     });
+  }
+
+  getCurrencyRates(
+    base: string,
+    currencies: string[],
+  ): Observable<{ base: string; rates: Record<string, number>; missing: string[]; source: string }> {
+    return this.httpClient.get<{ base: string; rates: Record<string, number>; missing: string[]; source: string }>(
+      `${this.apiBaseUrl}/currency/rates`,
+      {
+        params: { base, currencies },
+        headers: NO_AUTH_HEADER,
+      },
+    );
   }
 
   postTrip(trip: TripBase): Observable<TripBase> {

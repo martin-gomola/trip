@@ -63,6 +63,7 @@ export class TripBulkEditModalComponent {
         [Validators.pattern('-?(180(\\.0+)?|1[0-7]\\d(\\.\\d+)?|[1-9]?\\d(\\.\\d+)?)')],
       ],
       price: [{ value: null, disabled: true }],
+      price_currency: [{ value: '', disabled: true }],
       comment: [{ value: '', disabled: true }],
       attachment_ids: [{ value: [], disabled: true }],
       enable_day_id: [false],
@@ -73,6 +74,7 @@ export class TripBulkEditModalComponent {
       enable_lat: [false],
       enable_lng: [false],
       enable_price: [false],
+      enable_price_currency: [false],
       enable_comment: [false],
       enable_attachment_ids: [false],
     });
@@ -81,7 +83,19 @@ export class TripBulkEditModalComponent {
 
   setupToggles() {
     //todo: group lat and lng into one same checkbox logic
-    const keys = ['day_id', 'time', 'text', 'place', 'status', 'lat', 'lng', 'price', 'comment', 'attachment_ids'];
+    const keys = [
+      'day_id',
+      'time',
+      'text',
+      'place',
+      'status',
+      'lat',
+      'lng',
+      'price',
+      'price_currency',
+      'comment',
+      'attachment_ids',
+    ];
     keys.forEach((key) => {
       this.editForm
         .get(`enable_${key}`)
@@ -143,7 +157,19 @@ export class TripBulkEditModalComponent {
     if (!this.editForm.valid) return;
     const formValue = this.editForm.value;
     const data: any = {};
-    const keys = ['day_id', 'time', 'text', 'place', 'status', 'lat', 'lng', 'price', 'comment', 'attachment_ids'];
+    const keys = [
+      'day_id',
+      'time',
+      'text',
+      'place',
+      'status',
+      'lat',
+      'lng',
+      'price',
+      'price_currency',
+      'comment',
+      'attachment_ids',
+    ];
 
     let hasChanges = false;
     keys.forEach((key) => {

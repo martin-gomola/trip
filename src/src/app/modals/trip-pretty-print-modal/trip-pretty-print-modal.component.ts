@@ -3,13 +3,14 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { ButtonModule } from 'primeng/button';
 import { DynamicDialogConfig, DynamicDialogRef } from 'primeng/dynamicdialog';
 import { FloatLabelModule } from 'primeng/floatlabel';
-import { TripDay } from '../../types/trip';
+import { PrintMapProvider, TripDay } from '../../types/trip';
 import { MultiSelectModule } from 'primeng/multiselect';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
+import { SelectModule } from 'primeng/select';
 
 @Component({
   selector: 'app-trip-pretty-print-modal',
-  imports: [FloatLabelModule, ButtonModule, ReactiveFormsModule, MultiSelectModule, ToggleSwitchModule],
+  imports: [FloatLabelModule, ButtonModule, ReactiveFormsModule, MultiSelectModule, ToggleSwitchModule, SelectModule],
   standalone: true,
   templateUrl: './trip-pretty-print-modal.component.html',
   styleUrl: './trip-pretty-print-modal.component.scss',
@@ -32,6 +33,10 @@ export class TripPrettyPrintModalComponent {
   printForm: FormGroup;
   days: TripDay[] = [];
   props: string[] = [];
+  mapProviders: { label: string; value: PrintMapProvider }[] = [
+    { label: 'Mapy.com (offline)', value: 'mapy' },
+    { label: 'Google Maps', value: 'google' },
+  ];
 
   constructor(
     private ref: DynamicDialogRef,
@@ -44,6 +49,7 @@ export class TripPrettyPrintModalComponent {
       places: true,
       notes: true,
       metadata: true,
+      mapProvider: 'mapy',
     });
 
     if (this.config.data) {
@@ -59,6 +65,7 @@ export class TripPrettyPrintModalComponent {
     if (!ret) return;
     ret['days'] = new Set<number>(ret['days']);
     ret['props'] = new Set<string>(ret['props']);
+    ret['mapProvider'] = ret['mapProvider'] || 'mapy';
     this.ref.close(ret);
   }
 }

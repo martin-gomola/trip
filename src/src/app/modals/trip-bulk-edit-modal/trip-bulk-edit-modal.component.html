@@ -8,8 +8,16 @@
         <p-checkbox [binary]="true" formControlName="enable_day_id" />
       </p-inputgroup-addon>
       <p-floatlabel variant="in">
-        <p-select [options]="trip?.days" optionLabel="label" optionValue="id" formControlName="day_id" inputId="day"
-          [showClear]="true" appendTo="body" fluid class="capitalize" />
+        <p-select
+          [options]="trip?.days"
+          optionLabel="label"
+          optionValue="id"
+          formControlName="day_id"
+          inputId="day"
+          [showClear]="true"
+          appendTo="body"
+          fluid
+          class="capitalize" />
         <label for="day">Day</label>
       </p-floatlabel>
     </p-inputgroup>
@@ -39,8 +47,17 @@
         <p-checkbox [binary]="true" formControlName="enable_place" />
       </p-inputgroup-addon>
       <p-floatlabel variant="in">
-        <p-select [options]="trip?.places" optionValue="id" optionLabel="name" formControlName="place" inputId="place"
-          [filter]="true" [showClear]="true" appendTo="body" fluid class="capitalize">
+        <p-select
+          [options]="trip?.places"
+          optionValue="id"
+          optionLabel="name"
+          formControlName="place"
+          inputId="place"
+          [filter]="true"
+          [showClear]="true"
+          appendTo="body"
+          fluid
+          class="capitalize">
           <ng-template let-place #item>
             <div class="flex items-center gap-2" [class.text-primary-500]="place.placeUsage">
               <img [src]="place.image || place.category.image" class="rounded-md size-6 object-cover" />
@@ -49,10 +66,10 @@
           </ng-template>
           <ng-template let-selected #selectedItem>
             @if (selected) {
-            <div class="flex items-center gap-2">
-              <img [src]="selected.image || selected.category.image" class="rounded-md size-5 object-cover" />
-              <div>{{ selected.name }}</div>
-            </div>
+              <div class="flex items-center gap-2">
+                <img [src]="selected.image || selected.category.image" class="rounded-md size-5 object-cover" />
+                <div>{{ selected.name }}</div>
+              </div>
             }
           </ng-template>
         </p-select>
@@ -65,8 +82,16 @@
         <p-checkbox [binary]="true" formControlName="enable_status" />
       </p-inputgroup-addon>
       <p-floatlabel variant="in">
-        <p-select [options]="statuses" optionLabel="label" optionValue="label" formControlName="status" inputId="status"
-          [showClear]="true" appendTo="body" fluid class="capitalize">
+        <p-select
+          [options]="statuses"
+          optionLabel="label"
+          optionValue="label"
+          formControlName="status"
+          inputId="status"
+          [showClear]="true"
+          appendTo="body"
+          fluid
+          class="capitalize">
           <ng-template let-option #item>
             <div class="flex items-center gap-2">
               <div class="size-3 rounded-full" [style.background]="option.color"></div>
@@ -75,10 +100,10 @@
           </ng-template>
           <ng-template let-selected #selectedItem>
             @if (selected) {
-            <div class="flex items-center gap-2">
-              <div class="size-3 rounded-full" [style.background]="selected.color"></div>
-              <div>{{ selected.label }}</div>
-            </div>
+              <div class="flex items-center gap-2">
+                <div class="size-3 rounded-full" [style.background]="selected.color"></div>
+                <div>{{ selected.label }}</div>
+              </div>
             }
           </ng-template>
         </p-select>
@@ -111,9 +136,25 @@
         <p-checkbox [binary]="true" formControlName="enable_price" />
       </p-inputgroup-addon>
       <p-floatlabel variant="in">
-        <p-inputnumber id="price" formControlName="price" mode="decimal" [minFractionDigits]="0" [maxFractionDigits]="2"
-          currency="EUR" locale="fr-FR" fluid />
+        <p-inputnumber
+          id="price"
+          formControlName="price"
+          mode="decimal"
+          [minFractionDigits]="0"
+          [maxFractionDigits]="2"
+          locale="fr-FR"
+          fluid />
         <label for="price">Price</label>
+      </p-floatlabel>
+    </p-inputgroup>
+
+    <p-inputgroup>
+      <p-inputgroup-addon>
+        <p-checkbox [binary]="true" formControlName="enable_price_currency" />
+      </p-inputgroup-addon>
+      <p-floatlabel variant="in">
+        <input id="price_currency" pInputText formControlName="price_currency" fluid />
+        <label for="price_currency">Currency</label>
       </p-floatlabel>
     </p-inputgroup>
 
@@ -121,7 +162,13 @@
       <p-inputgroup-addon>
         <p-checkbox [binary]="true" formControlName="enable_comment" />
       </p-inputgroup-addon>
-      <textarea pTextarea id="comment" formControlName="comment" placeholder="Comment" rows="2" autoResize
+      <textarea
+        pTextarea
+        id="comment"
+        formControlName="comment"
+        placeholder="Comment"
+        rows="2"
+        autoResize
         fluid></textarea>
     </p-inputgroup>
 
@@ -130,8 +177,16 @@
         <p-checkbox [binary]="true" formControlName="enable_attachment_ids" />
       </p-inputgroup-addon>
       <p-floatlabel variant="in">
-        <p-multiselect [options]="trip?.attachments ?? []" optionValue="id" optionLabel="filename" id="attachment_ids"
-          formControlName="attachment_ids" [showToggleAll]="false" display="chip" scrollHeight="320px" appendTo="body"
+        <p-multiselect
+          [options]="trip?.attachments ?? []"
+          optionValue="id"
+          optionLabel="filename"
+          id="attachment_ids"
+          formControlName="attachment_ids"
+          [showToggleAll]="false"
+          display="chip"
+          scrollHeight="320px"
+          appendTo="body"
           fluid />
         <label for="attachment_ids">Attachments</label>
       </p-floatlabel>

@@ -39,6 +39,7 @@ async def create_place(
         allowdog=place.allowdog,
         description=place.description,
         price=place.price,
+        price_currency=place.price_currency,
         duration=place.duration,
         checkin_time=place.checkin_time,
         checkout_time=place.checkout_time,

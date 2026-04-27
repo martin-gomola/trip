@@ -53,7 +53,8 @@ export function generateTripICSFile(trip: Trip, utilsService: UtilsService): voi
     if (lat && lng) {
       eventDescription.push(`https://www.google.com/maps?q=${lat},${lng}`);
     }
-    if (item.price) eventDescription.push(`${item.price} ${trip.currency}`);
+    if (item.price)
+      eventDescription.push(`${item.price} ${item.price_currency || item.place?.price_currency || trip.currency}`);
 
     const description = eventDescription.join('\\n');
     const location = item.place?.name || (lat && lng ? `${lat}, ${lng}` : '');

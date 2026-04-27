@@ -455,7 +455,10 @@ html {
     padding: 4mm;
     display: grid;
     gap: 2mm;
-    min-height: 44mm;
+    align-content: start;
+    justify-items: start;
+    min-height: 62mm;
+    overflow: visible;
   }
 
   .roadbook-emergency strong,
@@ -474,13 +477,11 @@ html {
   }
 
   .roadbook-qr {
-    width: 24mm;
-    height: 24mm;
-    border: 1pt dashed #111;
-    display: grid;
-    place-items: center;
-    font-weight: 800;
-    font-size: 12pt !important;
+    width: 42mm;
+    height: 42mm;
+    display: block;
+    overflow: visible;
+    line-height: 0;
   }
 
   .roadbook-notes {
@@ -584,32 +585,42 @@ html {
     width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
-    font-size: 8.5pt;
+    font-size: 8pt;
+  }
+
+  .roadbook-col-total,
+  .roadbook-col-partial {
+    width: 17mm;
+  }
+
+  .roadbook-col-symbol {
+    width: 25mm;
+  }
+
+  .roadbook-col-title {
+    width: 30mm;
+  }
+
+  .roadbook-col-qr {
+    width: 52mm;
   }
 
   .roadbook-table th,
   .roadbook-table td {
     border: 1pt solid #111;
-    padding: 2.2mm;
+    padding: 2mm;
     vertical-align: top;
+    overflow-wrap: anywhere;
   }
 
   .roadbook-table th {
     background: #e9e9e9 !important;
-    font-size: 7.5pt;
+    font-size: 6.2pt;
+    line-height: 1.15;
     text-transform: uppercase;
-  }
-
-  .roadbook-table th:nth-child(1),
-  .roadbook-table th:nth-child(2),
-  .roadbook-table td:nth-child(1),
-  .roadbook-table td:nth-child(2) {
-    width: 18mm;
-  }
-
-  .roadbook-table th:nth-child(3),
-  .roadbook-table td:nth-child(3) {
-    width: 22mm;
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: none;
   }
 
   .roadbook-total {
@@ -653,23 +664,66 @@ html {
     padding: 8mm !important;
   }
 
+  .roadbook-row-qr-cell {
+    padding: 1mm !important;
+    text-align: center;
+    vertical-align: middle !important;
+  }
+
+  .roadbook-qr svg,
+  .roadbook-row-qr svg,
+  .roadbook-place-qr svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .roadbook-row-qr {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+    line-height: 0;
+    margin: 0 auto;
+    overflow: visible;
+  }
+
   .roadbook-place-list {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 3mm;
   }
 
   .roadbook-place {
     border: 1pt solid #111;
-    padding: 3mm;
+    padding: 1.5mm;
     display: grid;
-    gap: 1mm;
+    grid-template-columns: minmax(0, 1fr) 50mm;
+    gap: 2mm;
+    align-items: center;
     break-inside: avoid;
+  }
+
+  .roadbook-place strong,
+  .roadbook-place span,
+  .roadbook-place small {
+    display: block;
   }
 
   .roadbook-place span,
   .roadbook-place small {
-    font-size: 8pt;
+    font-size: 7.2pt;
+  }
+
+  .roadbook-place-qr {
+    display: block;
+    width: 34mm;
+    height: 34mm;
+    max-width: 100%;
+    aspect-ratio: 1;
+    justify-self: start;
+    align-self: center;
+    overflow: visible;
+    line-height: 0;
   }
 
   .roadbook-footer {

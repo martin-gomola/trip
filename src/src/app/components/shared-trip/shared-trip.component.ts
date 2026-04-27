@@ -12,6 +12,7 @@ import {
   ElementRef,
   ChangeDetectorRef,
 } from '@angular/core';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ApiService } from '../../services/api.service';
 import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
@@ -32,6 +33,7 @@ import {
   ViewTripItem,
   DayViewModel,
   HighlightData,
+  PrintMapProvider,
 } from '../../types/trip';
 import { Category, Place } from '../../types/poi';
 import {
@@ -48,7 +50,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { DialogService } from 'primeng/dynamicdialog';
 import { debounceTime, distinctUntilChanged, Observable, take } from 'rxjs';
 import { UtilsService } from '../../services/utils.service';
-import { CommonModule, DecimalPipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { MenuItem } from 'primeng/api';
 import { Menu, MenuModule } from 'primeng/menu';
 import { LinkifyPipe } from '../../shared/pipes/linkify.pipe';
@@ -61,6 +63,7 @@ import { generateTripICSFile } from '../../shared/trip-base/ics';
 import { generateTripCSVFile } from '../../shared/trip-base/csv';
 import {
   ROADBOOK_LEGEND_GROUPS,
+  mapProviderUrl,
   RoadbookLegendGroup,
   RoadbookRow,
   roadbookDayTotalKm,
@@ -75,6 +78,7 @@ import { PlaceBoxContentComponent } from '../../shared/place-box-content/place-b
 import { PlaceListItemComponent } from '../../shared/place-list-item/place-list-item.component';
 import { TripPrettyPrintModalComponent } from '../../modals/trip-pretty-print-modal/trip-pretty-print-modal.component';
 import { ToggleButtonModule } from 'primeng/togglebutton';
+import { qrCodeSvg } from '../../shared/qr';
 
 const HIGHLIGHT_COLORS = [
   '#e6194b',
@@ -108,7 +112,6 @@ const MAX_MAP_INIT_RETRIES = 5;
     FloatLabelModule,
     TableModule,
     ButtonModule,
-    DecimalPipe,
     DialogModule,
     TooltipModule,
     ClipboardModule,
@@ -144,6 +147,7 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
   utilsService: UtilsService;
   clipboard: Clipboard;
   changeDetectionRef: ChangeDetectorRef;
+  sanitizer: DomSanitizer;
 
   trip = signal<Trip | null>(null);
   packingList = signal<PackingItem[]>([]);
@@ -263,7 +267,7 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
 
         let prevLat: number | null = null;
         let prevLng: number | null = null;
-        let totalCost = 0;
+        const costs = new Map<string, number>();
         let hasPlaces = false;
 
         const items = filteredItems.map((item) => {
@@ -282,7 +286,10 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
             prevLng = lng;
           }
 
-          if (item.price) totalCost += item.price;
+          if (item.price) {
+            const currency = this.itemCurrency(item);
+            costs.set(currency, (costs.get(currency) ?? 0) + item.price);
+          }
           if (item.place) hasPlaces = true;
 
           return { ...item, status: statusObj, distance };
@@ -293,7 +300,8 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
           items,
           stats: {
             count: items.length,
-            cost: totalCost,
+            cost: [...costs.values()].reduce((total, value) => total + value, 0),
+            costSummary: this.formatPriceSummary(costs),
             hasPlaces,
           },
         };
@@ -313,6 +321,91 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
       );
     }, 0);
   });
+  totalPriceSummary = computed(() => {
+    const costs = new Map<string, number>();
+    for (const day of this.trip()?.days ?? []) {
+      for (const item of day.items) {
+        if (!item.price) continue;
+        const currency = this.itemCurrency(item);
+        costs.set(currency, (costs.get(currency) ?? 0) + item.price);
+      }
+    }
+    return this.formatPriceSummary(costs);
+  });
+
+  itemCurrency(item: Partial<TripItem>): string {
+    return item.price_currency || item.place?.price_currency || this.trip()?.currency || '';
+  }
+
+  currencyCode(currency?: string | null): string {
+    const value = (currency || '').trim().toUpperCase();
+    const aliases: Record<string, string> = {
+      $: 'USD',
+      US$: 'USD',
+      '€': 'EUR',
+      '£': 'GBP',
+      KČ: 'CZK',
+      KC: 'CZK',
+      KORUNA: 'CZK',
+      '฿': 'THB',
+      BAHT: 'THB',
+      '₫': 'VND',
+      DONG: 'VND',
+    };
+    if (aliases[value]) return aliases[value];
+    return value.replace(/[^A-Z]/g, '').slice(0, 3);
+  }
+
+  tripPriceCurrencies(): string[] {
+    const currencies = new Set<string>();
+    for (const day of this.trip()?.days ?? []) {
+      for (const item of day.items) {
+        if (!item.price) continue;
+        const currency = this.currencyCode(this.itemCurrency(item));
+        if (currency) currencies.add(currency);
+      }
+    }
+    return [...currencies].sort();
+  }
+
+  formatPrice(price?: number | null, currency?: string | null): string {
+    if (!price) return '';
+    const amount = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(price);
+    return `${amount} ${currency || this.trip()?.currency || ''}`.trim();
+  }
+
+  formatPriceSummary(costs: Map<string, number>): string {
+    const converted = this.convertPriceSummary(costs);
+    if (converted != null) return `≈ ${this.formatPrice(converted, this.trip()?.currency)}`;
+
+    return [...costs.entries()]
+      .filter(([, value]) => value > 0)
+      .map(([currency, value]) => this.formatPrice(value, currency))
+      .join(' · ');
+  }
+
+  convertPriceSummary(costs: Map<string, number>): number | null {
+    const base = this.currencyCode(this.trip()?.currency);
+    const rates = this.exchangeRates();
+    let converted = 0;
+    let hasCosts = false;
+
+    for (const [currency, value] of costs.entries()) {
+      if (!value) continue;
+      hasCosts = true;
+      const code = this.currencyCode(currency);
+      if (!code || code === base) {
+        converted += value;
+        continue;
+      }
+      const rate = rates[code];
+      if (!rate) return null;
+      converted += value * rate;
+    }
+
+    return hasCosts ? converted : null;
+  }
+
   displayedPlaces = computed(() => {
     const allPlaces = this.places();
     if (!this.showOnlyUnplannedPlaces()) return allPlaces;
@@ -427,6 +520,8 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
   statuses: TripStatus[];
   availableItemProps = ['place', 'comment', 'latlng', 'price', 'status', 'distance'];
   roadbookLegendGroups: RoadbookLegendGroup[] = ROADBOOK_LEGEND_GROUPS;
+  exchangeRates = signal<Record<string, number>>({});
+  private exchangeRateKey = '';
 
   map?: L.Map;
   markerClusterGroup?: L.MarkerClusterGroup;
@@ -443,6 +538,7 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
     this.utilsService = inject(UtilsService);
     this.clipboard = inject(Clipboard);
     this.changeDetectionRef = inject(ChangeDetectorRef);
+    this.sanitizer = inject(DomSanitizer);
 
     this.statuses = this.utilsService.statuses;
     this.username = this.utilsService.loggedUser;
@@ -450,6 +546,33 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
     this.plansSearchInput.valueChanges
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed())
       .subscribe((value) => this.searchQuery.set(value || ''));
+
+    effect(() => {
+      const trip = this.trip();
+      const currencies = this.tripPriceCurrencies();
+      if (!trip) return;
+
+      const base = this.currencyCode(trip.currency);
+      const externalCurrencies = currencies.filter((currency) => currency && currency !== base);
+      const key = `${base}:${externalCurrencies.join(',')}`;
+      if (key === this.exchangeRateKey) return;
+      this.exchangeRateKey = key;
+
+      if (!externalCurrencies.length) {
+        untracked(() => this.exchangeRates.set({}));
+        return;
+      }
+
+      untracked(() => {
+        this.apiService
+          .getCurrencyRates(base, externalCurrencies)
+          .pipe(take(1))
+          .subscribe({
+            next: (response) => this.exchangeRates.set(response.rates),
+            error: () => this.exchangeRates.set({}),
+          });
+      });
+    });
 
     effect(() => {
       const vm = this.tripViewModel();
@@ -954,16 +1077,33 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
     return Array.from(categories.values());
   }
 
-  roadbookRows(group: DayViewModel): RoadbookRow[] {
-    return roadbookRowsForDay(group);
+  roadbookRows(group: DayViewModel, mapProvider: PrintMapProvider = 'mapy'): RoadbookRow[] {
+    return roadbookRowsForDay(group, mapProvider);
   }
 
   roadbookDayTotal(group: DayViewModel): string {
     return roadbookDayTotalKm(group);
   }
 
-  roadbookEmergencyUrl(): string {
-    return roadbookEmergencyMapsUrl(this.trip());
+  printMapProvider(options?: PrintOptions | null): PrintMapProvider {
+    return options?.mapProvider ?? 'mapy';
+  }
+
+  roadbookEmergencyUrl(mapProvider: PrintMapProvider = 'mapy'): string {
+    return roadbookEmergencyMapsUrl(this.trip(), mapProvider);
+  }
+
+  roadbookEmergencyText(mapProvider: PrintMapProvider = 'mapy'): string {
+    const providerName = mapProvider === 'google' ? 'Google Maps' : 'Mapy.com';
+    return `V prípade straty orientácie naskenujte tento kód pre ${providerName} offline mapu.`;
+  }
+
+  roadbookQr(url?: string | null): SafeHtml {
+    return this.sanitizer.bypassSecurityTrustHtml(qrCodeSvg(url));
+  }
+
+  roadbookPlaceUrl(place: Place, mapProvider: PrintMapProvider = 'mapy'): string {
+    return mapProviderUrl(place.lat, place.lng, place.name, mapProvider);
   }
 
   resetPlansWidth() {

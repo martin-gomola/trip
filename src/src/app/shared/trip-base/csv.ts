@@ -1,7 +1,19 @@
 import { Trip, TripStatus } from '../../types/trip';
 
 export function generateTripCSVFile(trip: Trip): void {
-  const headers = ['Date', 'Day', 'Time', 'Activity', 'Comment', 'Place', 'Latitude', 'Longitude', 'Price', 'Status'];
+  const headers = [
+    'Date',
+    'Day',
+    'Time',
+    'Activity',
+    'Comment',
+    'Place',
+    'Latitude',
+    'Longitude',
+    'Price',
+    'Currency',
+    'Status',
+  ];
   const rows: string[] = [headers.join(',')];
   trip.days.forEach((day) => {
     const sortedItems = [...day.items].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
@@ -27,6 +39,7 @@ export function generateTripCSVFile(trip: Trip): void {
         lat,
         lng,
         item.price ?? '',
+        escape_rfc4180(item.price_currency ?? item.place?.price_currency ?? trip.currency ?? ''),
         escape_rfc4180(statusLabel),
       ];
 

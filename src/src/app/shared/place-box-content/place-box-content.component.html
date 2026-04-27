@@ -1,202 +1,225 @@
 @if (selectedPlace) {
-@if (showMeta) {
-<div class="flex justify-between items-center mb-8 min-w-0">
-  <div class="flex items-center gap-4 w-full min-w-0">
-    <img [src]="selectedPlace.image || selectedPlace.category.image"
-      class="object-cover rounded-full size-16 ring-2 ring-primary-200/50 dark:ring-primary-700/50 shrink-0" />
+  @if (showMeta) {
+    <div class="flex justify-between items-center mb-8 min-w-0">
+      <div class="flex items-center gap-4 w-full min-w-0">
+        <img
+          [src]="selectedPlace.image || selectedPlace.category.image"
+          class="object-cover rounded-full size-16 ring-2 ring-primary-200/50 dark:ring-primary-700/50 shrink-0" />
 
-    <div class="flex grow min-w-0 flex-col">
-      <h1 class="text-primary-900 dark:text-primary-100 font-bold mb-0 truncate text-lg">
-        {{ selectedPlace.name }}
-      </h1>
+        <div class="flex grow min-w-0 flex-col">
+          <h1 class="text-primary-900 dark:text-primary-100 font-bold mb-0 truncate text-lg">
+            {{ selectedPlace.name }}
+          </h1>
 
-      <div class="hidden md:flex mt-2 gap-1.5 flex-wrap">
-        <span [style.--color-bg-opacity]="selectedPlace.category.color"
-          class="text-sm color-bg-opacity font-medium px-2.5 py-1 rounded-lg flex gap-2 items-center truncate">
-          <i class="pi pi-box text-xs"></i>
-          {{ selectedPlace.category.name }}
+          <div class="hidden md:flex mt-2 gap-1.5 flex-wrap">
+            <span
+              [style.--color-bg-opacity]="selectedPlace.category.color"
+              class="text-sm color-bg-opacity font-medium px-2.5 py-1 rounded-lg flex gap-2 items-center truncate">
+              <i class="pi pi-box text-xs"></i>
+              {{ selectedPlace.category.name }}
+            </span>
+
+            @if (selectedPlace.allowdog) {
+              <span
+                class="bg-green-100/80 text-green-800 text-sm px-2.5 py-1 rounded-lg dark:bg-green-900/50 dark:text-green-300 font-medium whitespace-nowrap">
+                🐶 Yes
+              </span>
+            } @else {
+              <span
+                class="bg-primary-100/80 text-primary-600 text-sm px-2.5 py-1 rounded-lg dark:bg-primary-800/80 dark:text-primary-300 font-medium whitespace-nowrap">
+                🐶 No
+              </span>
+            }
+
+            @if (selectedPlace.restroom) {
+              <span
+                class="bg-green-100/80 text-green-800 text-sm px-2.5 py-1 rounded-lg dark:bg-green-900/50 dark:text-green-300 font-medium whitespace-nowrap">
+                🚽 Yes
+              </span>
+            } @else {
+              <span
+                class="bg-primary-100/80 text-primary-600 text-sm px-2.5 py-1 rounded-lg dark:bg-primary-800/80 dark:text-primary-300 font-medium whitespace-nowrap">
+                🚽 No
+              </span>
+            }
+
+            @if (selectedPlace.visited) {
+              <span
+                class="flex items-center gap-1.5 bg-green-100/80 text-green-800 text-sm px-2.5 py-1 rounded-lg dark:bg-green-900/50 dark:text-green-300 font-medium whitespace-nowrap">
+                <i class="pi pi-eye text-xs"></i> Done
+              </span>
+            } @else {
+              <span
+                class="flex items-center gap-1.5 bg-primary-100/80 text-primary-600 text-sm px-2.5 py-1 rounded-lg dark:bg-primary-800/80 dark:text-primary-300 font-medium whitespace-nowrap">
+                <i class="pi pi-eye-slash text-xs"></i> To do
+              </span>
+            }
+          </div>
+        </div>
+
+        @if (showButtons) {
+          <div class="flex items-center justify-end gap-1.5 shrink-0">
+            <div class="hidden md:flex gap-1">
+              <p-button (click)="openNavigationToPlace()" pTooltip="Open in Navigation" text icon="pi pi-car" />
+              @if (externalUrl()) {
+                <p-button (click)="openUrl()" pTooltip="Open source" text icon="pi pi-external-link" />
+              }
+              <p-button (click)="flyToPlace()" pTooltip="Fly to Place" text icon="pi pi-expand" />
+              <p-button
+                (click)="favoritePlace()"
+                pTooltip="Mark as favorite"
+                styleClass="text-rose-500!"
+                text
+                [icon]="selectedPlace.favorite ? 'pi pi-heart-fill' : 'pi pi-heart'" />
+              <p-button styleClass="text-blue-500!" pTooltip="Edit" (click)="editPlace()" text icon="pi pi-pencil" />
+              <p-button
+                (click)="desktopMenu.toggle($event)"
+                severity="secondary"
+                text
+                icon="pi pi-ellipsis-h"
+                pTooltip="More" />
+              <p-menu #desktopMenu [model]="secondaryMenuItems" [popup]="true" appendTo="body" />
+            </div>
+
+            <div class="flex md:hidden">
+              <p-button (click)="menu.toggle($event)" severity="secondary" text icon="pi pi-ellipsis-h" />
+            </div>
+
+            <div class="border-s border-primary-300 dark:border-primary-700 h-5"></div>
+            <p-button (click)="close()" severity="secondary" text icon="pi pi-times" />
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  <div class="grid md:grid-cols-2 gap-4 min-w-0">
+    <div class="flex flex-col min-w-0">
+      <span class="text-xs font-semibold uppercase tracking-wide text-primary-500 dark:text-primary-400 mb-1"
+        >Place</span
+      >
+      <div class="line-clamp-2 text-primary-900 dark:text-primary-100 wrap-break-word">{{ selectedPlace.place }}</div>
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 min-w-0">
+      <div class="col-span-2 min-w-0">
+        @let coords = selectedPlace.lat + ', ' + selectedPlace.lng;
+        <span class="block text-xs font-semibold uppercase tracking-wide text-primary-500 dark:text-primary-400 mb-1">
+          Coordinates
         </span>
 
-        @if (selectedPlace.allowdog) {
+        <div
+          class="inline-flex h-8 items-center gap-1 rounded-lg border border-primary-200 bg-primary-50 px-2 text-primary-700 dark:border-primary-700 dark:bg-primary-800 dark:text-primary-300 min-w-0 max-w-full">
+          <span class="truncate px-1 text-xs font-medium tabular-nums">{{ coords }}</span>
+
+          <button
+            type="button"
+            [cdkCopyToClipboard]="coords"
+            (cdkCopyToClipboardCopied)="onCoordsCopied()"
+            pTooltip="Copy coordinates"
+            class="inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-primary-100 dark:hover:bg-primary-700">
+            <i class="pi text-xs" [class]="tooltipCopied() ? 'pi-check text-green-600' : 'pi-copy'"></i>
+          </button>
+
+          <button
+            type="button"
+            (click)="openNavigationToPlace()"
+            pTooltip="Navigate to Coordinates"
+            class="inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-primary-100 dark:hover:bg-primary-700">
+            <i class="pi pi-map-marker text-xs"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="min-w-0">
+        <span class="block text-xs font-semibold uppercase tracking-wide text-primary-500 dark:text-primary-400 mb-1">
+          Price
+        </span>
+        <div class="flex items-center h-8 text-sm text-primary-900 dark:text-primary-100 min-w-0">
+          <span class="truncate"
+            >{{ selectedPlace.price || '-' }}
+            @if (selectedPlace.price) {
+              {{ selectedPlace.price_currency || (currency$ | async) }}
+            }
+          </span>
+        </div>
+      </div>
+
+      <div class="min-w-0">
+        <span class="block text-xs font-semibold uppercase tracking-wide text-primary-500 dark:text-primary-400 mb-1">
+          {{ isAccommodation() ? 'Stay Times' : 'Duration' }}
+        </span>
+
+        <div class="flex items-center h-8 text-sm text-primary-900 dark:text-primary-100 min-w-0">
+          @if (isAccommodation()) {
+            <span class="truncate">
+              {{ selectedPlace.checkin_time || '-' }} / {{ selectedPlace.checkout_time || '-' }}
+            </span>
+          } @else {
+            <span class="truncate">
+              {{ (selectedPlace.duration | naturalDuration) || '-' }}
+            </span>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex flex-col mt-4 max-h-40 overflow-y-auto min-w-0">
+    <span class="text-xs font-semibold uppercase tracking-wide text-primary-500 dark:text-primary-400 mb-1"
+      >Description</span
+    >
+    <span
+      class="wrap-break-word whitespace-pre-wrap text-primary-900 dark:text-primary-100"
+      [innerHTML]="selectedPlace.description || '-' | linkify">
+    </span>
+  </div>
+
+  @if (showMeta) {
+    <div class="flex md:hidden w-full mt-6 gap-1.5 justify-center flex-wrap">
+      <span
+        [style.--color-bg-opacity]="selectedPlace.category.color"
+        class="flex color-bg-opacity items-center gap-1 text-sm font-medium px-2.5 py-1 rounded-lg whitespace-nowrap">
+        <i class="pi pi-box text-xs"></i>{{ selectedPlace.category.name }}
+      </span>
+
+      @if (selectedPlace.allowdog) {
         <span
-          class="bg-green-100/80 text-green-800 text-sm px-2.5 py-1 rounded-lg dark:bg-green-900/50 dark:text-green-300 font-medium whitespace-nowrap">
+          class="flex items-center gap-1 bg-green-100/80 text-green-800 text-sm px-2.5 py-1 rounded-lg dark:bg-green-900/50 dark:text-green-300 font-medium whitespace-nowrap">
           🐶 Yes
         </span>
-        } @else {
+      } @else {
         <span
-          class="bg-primary-100/80 text-primary-600 text-sm px-2.5 py-1 rounded-lg dark:bg-primary-800/80 dark:text-primary-300 font-medium whitespace-nowrap">
+          class="flex items-center gap-1 bg-primary-100/80 text-primary-600 text-sm px-2.5 py-1 rounded-lg dark:bg-primary-800/80 dark:text-primary-300 font-medium whitespace-nowrap">
           🐶 No
         </span>
-        }
+      }
 
-        @if (selectedPlace.restroom) {
+      @if (selectedPlace.restroom) {
         <span
-          class="bg-green-100/80 text-green-800 text-sm px-2.5 py-1 rounded-lg dark:bg-green-900/50 dark:text-green-300 font-medium whitespace-nowrap">
+          class="flex items-center gap-1 bg-green-100/80 text-green-800 text-sm px-2.5 py-1 rounded-lg dark:bg-green-900/50 dark:text-green-300 font-medium whitespace-nowrap">
           🚽 Yes
         </span>
-        } @else {
+      } @else {
         <span
-          class="bg-primary-100/80 text-primary-600 text-sm px-2.5 py-1 rounded-lg dark:bg-primary-800/80 dark:text-primary-300 font-medium whitespace-nowrap">
+          class="flex items-center gap-1 bg-primary-100/80 text-primary-600 text-sm px-2.5 py-1 rounded-lg dark:bg-primary-800/80 dark:text-primary-300 font-medium whitespace-nowrap">
           🚽 No
         </span>
-        }
+      }
 
-        @if (selectedPlace.visited) {
+      @if (selectedPlace.visited) {
         <span
-          class="flex items-center gap-1.5 bg-green-100/80 text-green-800 text-sm px-2.5 py-1 rounded-lg dark:bg-green-900/50 dark:text-green-300 font-medium whitespace-nowrap">
+          class="flex items-center gap-1 bg-green-100/80 text-green-800 text-sm px-2.5 py-1 rounded-lg dark:bg-green-900/50 dark:text-green-300 font-medium whitespace-nowrap">
           <i class="pi pi-eye text-xs"></i> Done
         </span>
-        } @else {
+      } @else {
         <span
-          class="flex items-center gap-1.5 bg-primary-100/80 text-primary-600 text-sm px-2.5 py-1 rounded-lg dark:bg-primary-800/80 dark:text-primary-300 font-medium whitespace-nowrap">
+          class="flex items-center gap-1 bg-primary-100/80 text-primary-600 text-sm px-2.5 py-1 rounded-lg dark:bg-primary-800/80 dark:text-primary-300 font-medium whitespace-nowrap">
           <i class="pi pi-eye-slash text-xs"></i> To do
         </span>
-        }
-      </div>
+      }
     </div>
-
-    @if (showButtons) {
-    <div class="flex items-center justify-end gap-1.5 shrink-0">
-      <div class="hidden md:flex gap-1">
-        <p-button (click)="openNavigationToPlace()" pTooltip="Open in Navigation" text icon="pi pi-car" />
-        @if (externalUrl()) {
-        <p-button (click)="openUrl()" pTooltip="Open source" text icon="pi pi-external-link" />
-        }
-        <p-button (click)="flyToPlace()" pTooltip="Fly to Place" text icon="pi pi-expand" />
-        <p-button (click)="favoritePlace()" pTooltip="Mark as favorite" styleClass="text-rose-500!" text
-          [icon]="selectedPlace.favorite ? 'pi pi-heart-fill' : 'pi pi-heart'" />
-        <p-button styleClass="text-blue-500!" pTooltip="Edit" (click)="editPlace()" text icon="pi pi-pencil" />
-        <p-button (click)="desktopMenu.toggle($event)" severity="secondary" text icon="pi pi-ellipsis-h" pTooltip="More" />
-        <p-menu #desktopMenu [model]="secondaryMenuItems" [popup]="true" appendTo="body" />
-      </div>
-
-      <div class="flex md:hidden">
-        <p-button (click)="menu.toggle($event)" severity="secondary" text icon="pi pi-ellipsis-h" />
-      </div>
-
-      <div class="border-s border-primary-300 dark:border-primary-700 h-5"></div>
-      <p-button (click)="close()" severity="secondary" text icon="pi pi-times" />
-    </div>
-    }
-  </div>
-</div>
-}
-
-<div class="grid md:grid-cols-2 gap-4 min-w-0">
-  <div class="flex flex-col min-w-0">
-    <span class="text-xs font-semibold uppercase tracking-wide text-primary-500 dark:text-primary-400 mb-1">Place</span>
-    <div class="line-clamp-2 text-primary-900 dark:text-primary-100 wrap-break-word">{{ selectedPlace.place }}</div>
-  </div>
-
-  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 min-w-0">
-    <div class="col-span-2 min-w-0">
-      @let coords = selectedPlace.lat + ', ' + selectedPlace.lng;
-      <span class="block text-xs font-semibold uppercase tracking-wide text-primary-500 dark:text-primary-400 mb-1">
-        Coordinates
-      </span>
-
-      <div
-        class="inline-flex h-8 items-center gap-1 rounded-lg border border-primary-200 bg-primary-50 px-2 text-primary-700 dark:border-primary-700 dark:bg-primary-800 dark:text-primary-300 min-w-0 max-w-full">
-        <span class="truncate px-1 text-xs font-medium tabular-nums">{{ coords }}</span>
-
-        <button type="button" [cdkCopyToClipboard]="coords" (cdkCopyToClipboardCopied)="onCoordsCopied()"
-          pTooltip="Copy coordinates"
-          class="inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-primary-100 dark:hover:bg-primary-700">
-          <i class="pi text-xs" [class]="tooltipCopied() ? 'pi-check text-green-600' : 'pi-copy'"></i>
-        </button>
-
-        <button type="button" (click)="openNavigationToPlace()" pTooltip="Navigate to Coordinates"
-          class="inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-primary-100 dark:hover:bg-primary-700">
-          <i class="pi pi-map-marker text-xs"></i>
-        </button>
-      </div>
-    </div>
-
-    <div class="min-w-0">
-      <span class="block text-xs font-semibold uppercase tracking-wide text-primary-500 dark:text-primary-400 mb-1">
-        Price
-      </span>
-      <div class="flex items-center h-8 text-sm text-primary-900 dark:text-primary-100 min-w-0">
-        <span class="truncate">{{ selectedPlace.price || '-' }}
-          @if (selectedPlace.price) {
-          {{ currency$ | async }}
-          }
-        </span>
-      </div>
-    </div>
-
-    <div class="min-w-0">
-      <span class="block text-xs font-semibold uppercase tracking-wide text-primary-500 dark:text-primary-400 mb-1">
-        {{ isAccommodation() ? 'Stay Times' : 'Duration' }}
-      </span>
-
-      <div class="flex items-center h-8 text-sm text-primary-900 dark:text-primary-100 min-w-0">
-        @if (isAccommodation()) {
-        <span class="truncate">
-          {{ selectedPlace.checkin_time || '-' }} / {{ selectedPlace.checkout_time || '-' }}
-        </span>
-        } @else {
-        <span class="truncate">
-          {{ (selectedPlace.duration | naturalDuration) || '-' }}
-        </span>
-        }
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="flex flex-col mt-4 max-h-40 overflow-y-auto min-w-0">
-  <span
-    class="text-xs font-semibold uppercase tracking-wide text-primary-500 dark:text-primary-400 mb-1">Description</span>
-  <span class="wrap-break-word whitespace-pre-wrap text-primary-900 dark:text-primary-100"
-    [innerHTML]="selectedPlace.description || '-' | linkify">
-  </span>
-</div>
-
-@if (showMeta) {
-<div class="flex md:hidden w-full mt-6 gap-1.5 justify-center flex-wrap">
-  <span [style.--color-bg-opacity]="selectedPlace.category.color"
-    class="flex color-bg-opacity items-center gap-1 text-sm font-medium px-2.5 py-1 rounded-lg whitespace-nowrap">
-    <i class="pi pi-box text-xs"></i>{{ selectedPlace.category.name }}
-  </span>
-
-  @if (selectedPlace.allowdog) {
-  <span
-    class="flex items-center gap-1 bg-green-100/80 text-green-800 text-sm px-2.5 py-1 rounded-lg dark:bg-green-900/50 dark:text-green-300 font-medium whitespace-nowrap">
-    🐶 Yes
-  </span>
-  } @else {
-  <span
-    class="flex items-center gap-1 bg-primary-100/80 text-primary-600 text-sm px-2.5 py-1 rounded-lg dark:bg-primary-800/80 dark:text-primary-300 font-medium whitespace-nowrap">
-    🐶 No
-  </span>
   }
-
-  @if (selectedPlace.restroom) {
-  <span
-    class="flex items-center gap-1 bg-green-100/80 text-green-800 text-sm px-2.5 py-1 rounded-lg dark:bg-green-900/50 dark:text-green-300 font-medium whitespace-nowrap">
-    🚽 Yes
-  </span>
-  } @else {
-  <span
-    class="flex items-center gap-1 bg-primary-100/80 text-primary-600 text-sm px-2.5 py-1 rounded-lg dark:bg-primary-800/80 dark:text-primary-300 font-medium whitespace-nowrap">
-    🚽 No
-  </span>
-  }
-
-  @if (selectedPlace.visited) {
-  <span
-    class="flex items-center gap-1 bg-green-100/80 text-green-800 text-sm px-2.5 py-1 rounded-lg dark:bg-green-900/50 dark:text-green-300 font-medium whitespace-nowrap">
-    <i class="pi pi-eye text-xs"></i> Done
-  </span>
-  } @else {
-  <span
-    class="flex items-center gap-1 bg-primary-100/80 text-primary-600 text-sm px-2.5 py-1 rounded-lg dark:bg-primary-800/80 dark:text-primary-300 font-medium whitespace-nowrap">
-    <i class="pi pi-eye-slash text-xs"></i> To do
-  </span>
-  }
-</div>
-}
 }
 
 <p-menu #menu [model]="menuItems" [popup]="true" appendTo="body" [pt]="{ root: 'place-mobile-actions' }" />

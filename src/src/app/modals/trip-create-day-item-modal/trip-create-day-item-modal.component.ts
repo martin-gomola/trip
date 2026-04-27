@@ -86,6 +86,7 @@ export class TripCreateDayItemModalComponent {
       place: null,
       status: null,
       price: null,
+      price_currency: null,
       image: null,
       image_id: null,
       gpx: null,
@@ -215,6 +216,7 @@ export class TripCreateDayItemModalComponent {
       ret['stay_checkout_time'] = ret['stay_checkout_time'] || null;
     }
     delete ret['stay_nights'];
+    ret['price_currency'] = ret['price'] ? ret['price_currency']?.trim() || this.trip?.currency || null : null;
     if (!ret['lat']) {
       ret['lat'] = null;
       ret['lng'] = null;
@@ -239,6 +241,8 @@ export class TripCreateDayItemModalComponent {
     this.itemForm.get('lat')?.setValue(p.lat);
     this.itemForm.get('lng')?.setValue(p.lng);
     if (pid !== HOME_PLACE_ID) this.itemForm.get('price')?.setValue(p.price || 0);
+    if (pid !== HOME_PLACE_ID)
+      this.itemForm.get('price_currency')?.setValue(p.price_currency || this.trip?.currency || null);
     if (!this.itemForm.get('text')?.value) this.itemForm.get('text')?.setValue(p.name);
     if (p.description && !this.itemForm.get('comment')?.value) this.itemForm.get('comment')?.setValue(p.description);
     if (this.isAccommodationPlace(p)) {
@@ -275,7 +279,11 @@ export class TripCreateDayItemModalComponent {
   }
 
   canConfigureStay(): boolean {
-    return this.isSelectedPlaceAccommodation() && this.selectedArrivalDayId() !== null && this.checkoutDayOptions().length > 0;
+    return (
+      this.isSelectedPlaceAccommodation() &&
+      this.selectedArrivalDayId() !== null &&
+      this.checkoutDayOptions().length > 0
+    );
   }
 
   normalizeAccommodationArrivalDay() {
@@ -308,7 +316,9 @@ export class TripCreateDayItemModalComponent {
   staySummary(): string {
     const nights = this.clampedStayNights();
     const arrivalDay = this.trip?.days.find((day) => day.id === this.selectedArrivalDayId());
-    const checkoutDay = this.checkoutDayOptions().find((day) => day.id === this.itemForm.get('stay_checkout_day_id')?.value);
+    const checkoutDay = this.checkoutDayOptions().find(
+      (day) => day.id === this.itemForm.get('stay_checkout_day_id')?.value,
+    );
     if (!arrivalDay || !checkoutDay) return 'Select one arrival day to configure the stay.';
     return `${nights} night${nights === 1 ? '' : 's'}: check-in ${arrivalDay.label} at ${this.itemForm.get('time')?.value || '15:00'}, checkout ${checkoutDay.label} at ${this.itemForm.get('stay_checkout_time')?.value || '10:00'}.`;
   }

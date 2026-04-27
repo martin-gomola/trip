@@ -273,25 +273,36 @@ def get_trip_balance(
     trip_id: int,
     current_user: Annotated[str, Depends(get_current_username)],
 ):
-    _get_verified_trip(session, trip_id, current_user)
+    trip = _get_verified_trip(session, trip_id, current_user)
     members = _trip_usernames(session, trip_id)
     if len(members) < 2:
         raise HTTPException(status_code=404, detail="Not found")
 
     trip_items = session.exec(
-        select(TripItem.price, TripItem.paid_by)
+        select(TripItem.price, TripItem.paid_by, TripItem.price_currency, Place.price_currency)
         .join(TripDay)
+        .outerjoin(Place, TripItem.place_id == Place.id)
         .where(TripDay.trip_id == trip_id, TripItem.price.is_not(None), TripItem.paid_by.is_not(None))
     ).all()
 
-    paid_by_map = {m: 0 for m in members}
-    for item in trip_items:
-        if not item.price or not item.paid_by:
+    paid_by_map = {m: {} for m in members}
+    for price, paid_by, item_currency, place_currency in trip_items:
+        if not price or not paid_by:
             continue
-        paid_by_map[item.paid_by] += item.price
-    xpected_per_person = sum(paid_by_map.values()) / len(members)
+        currency = item_currency or place_currency or trip.currency or ""
+        paid_by_map[paid_by][currency] = paid_by_map[paid_by].get(currency, 0) + price
 
-    return {member: paid_by_map[member] - xpected_per_person for member in paid_by_map}
+    currencies = {currency for totals in paid_by_map.values() for currency in totals}
+    expected_per_currency = {
+        currency: sum(totals.get(currency, 0) for totals in paid_by_map.values()) / len(members) for currency in currencies
+    }
+
+    return {
+        member: {
+            currency: paid_by_map[member].get(currency, 0) - expected_per_currency[currency] for currency in currencies
+        }
+        for member in paid_by_map
+    }
 
 
 @router.post("/{trip_id}/days", response_model=TripDayRead)
@@ -392,6 +403,7 @@ def create_tripitem(
         lng=item.lng,
         day_id=day_id,
         price=item.price,
+        price_currency=item.price_currency,
         status=item.status,
         stay_checkout_day_id=item.stay_checkout_day_id,
         stay_checkout_time=item.stay_checkout_time,
