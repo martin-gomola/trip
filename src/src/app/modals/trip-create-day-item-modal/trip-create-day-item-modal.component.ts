@@ -305,6 +305,21 @@ export class TripCreateDayItemModalComponent {
     return this.isAccommodationPlace(this.selectedPlace());
   }
 
+  /** True when the form has no concrete place link (free-form item). */
+  hasFreeFormCoordinates(): boolean {
+    const placeId = this.itemForm.get('place')?.value;
+    return !placeId || placeId === HOME_PLACE_ID;
+  }
+
+  /** Short, read-only label for the place's coordinates (shown when a place is selected). */
+  selectedPlaceCoordsLabel(): string | null {
+    const place = this.selectedPlace();
+    if (!place || place.lat == null || place.lng == null) return null;
+    const lat = Number(place.lat).toFixed(4);
+    const lng = Number(place.lng).toFixed(4);
+    return `${lat}, ${lng}`;
+  }
+
   /** Default check-in time from the selected place, used as a ghost hint. */
   selectedPlaceCheckinDefault(): string | null {
     const place = this.selectedPlace();

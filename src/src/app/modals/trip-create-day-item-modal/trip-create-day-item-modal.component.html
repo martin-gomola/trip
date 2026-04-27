@@ -286,15 +286,24 @@
         </p-floatlabel>
       }
 
-      <p-floatlabel variant="in" class="md:col-span-2">
-        <input id="lat" formControlName="lat" pInputText fluid />
-        <label for="lat">Latitude</label>
-      </p-floatlabel>
+      @if (hasFreeFormCoordinates()) {
+        <p-floatlabel variant="in" class="md:col-span-2">
+          <input id="lat" formControlName="lat" pInputText fluid />
+          <label for="lat">Latitude</label>
+        </p-floatlabel>
 
-      <p-floatlabel variant="in" class="md:col-span-2">
-        <input id="lng" formControlName="lng" pInputText fluid />
-        <label for="lng">Longitude</label>
-      </p-floatlabel>
+        <p-floatlabel variant="in" class="md:col-span-2">
+          <input id="lng" formControlName="lng" pInputText fluid />
+          <label for="lng">Longitude</label>
+        </p-floatlabel>
+      } @else if (selectedPlaceCoordsLabel()) {
+        <div
+          class="md:col-span-4 flex items-center gap-2 rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-xs text-primary-700 dark:border-primary-700 dark:bg-primary-950/30 dark:text-primary-200">
+          <i class="pi pi-map-marker"></i>
+          <span class="font-mono">{{ selectedPlaceCoordsLabel() }}</span>
+          <span class="text-primary-500 dark:text-primary-400">— from place template; edit on the place to change.</span>
+        </div>
+      }
     </div>
 
     <div class="grid md:grid-cols-[auto_1fr] gap-4">
