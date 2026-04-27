@@ -100,6 +100,17 @@ skills/trip-planner/scripts/trip_api.py place google-search \
 
 The CLI defaults to `http://localhost:8050` and `.env`. Pass `--base-url "$TRIP_BASE_URL"` only when the configured public route matters. Before adding or changing API commands, run `docs brief` and read `references/api.md` only if more detail is needed. Current first-class commands cover all live by-token endpoints, and `raw` can call future token endpoints without printing secrets.
 
+## Local Lessons
+
+- Keep `skills/trip-planner/scripts/trip_api.py` aligned with the app's current planning model. If the UI adds item fields, the roadtrip import path should carry them too.
+- Current roadtrip item fields include booking status/reference/cancel deadline, cost status, fees, duration, accommodation checkout day/time, and day start times.
+- Use `trip_only: true` for sample or trip-specific places created from planning sessions so temporary stops and placeholder accommodations do not appear in the global Places screen.
+- Accommodation convention: place price is price per night; itinerary item price is the full stay total; extra costs such as dog, cleaning, and tourist tax go in `fee_amount`/`fee_label`.
+- Accommodation rows use `booking_status` for booking state. Leave generic item `status` empty unless it is a non-booking planning flag on a normal itinerary item.
+- `roadtrip apply` should stay idempotent when the app retimes an item: match by day + exact time + text first, then by unique day + text before creating a new item.
+- Itinerary order is currently time-driven. UI drag/drop reordering persists by moving item time slots within the same day, not by a separate sort-order column.
+- Always validate and dry-run before applying a generated trip. After applying an accommodation stay, verify `stay_checkout_day_id`, `stay_checkout_time`, `booking_status`, `cost_status`, and `fee_amount` survived the container write.
+
 ## Recovering `.env`
 
 If `.env` is missing and the Docker container still exists, recover the expected values from container metadata instead of guessing. Preserve these fields when present:

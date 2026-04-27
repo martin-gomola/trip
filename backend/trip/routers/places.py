@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
@@ -22,6 +23,7 @@ def read_places(
         select(Place)
         .options(selectinload(Place.image), selectinload(Place.category))
         .where(Place.user == current_user)
+        .where(or_(Place.trip_only.is_(False), Place.trip_only.is_(None)))
     ).all()
     return [PlaceRead.serialize(p) for p in db_places]
 
@@ -47,6 +49,7 @@ async def create_place(
         category_id=place.category_id,
         visited=place.visited,
         restroom=place.restroom,
+        trip_only=place.trip_only,
         user=current_user,
     )
 

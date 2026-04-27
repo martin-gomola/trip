@@ -55,6 +55,10 @@ export function generateTripICSFile(trip: Trip, utilsService: UtilsService): voi
     }
     if (item.price)
       eventDescription.push(`${item.price} ${item.price_currency || item.place?.price_currency || trip.currency}`);
+    if (item.booking_status) eventDescription.push(`Booking: ${item.booking_status}`);
+    if (item.booking_reference) eventDescription.push(`Reference: ${item.booking_reference}`);
+    if (item.cost_status) eventDescription.push(`Cost: ${item.cost_status}`);
+    if (item.fee_amount) eventDescription.push(`Fees: ${item.fee_amount} ${item.fee_label || ''}`.trim());
 
     const description = eventDescription.join('\\n');
     const location = item.place?.name || (lat && lng ? `${lat}, ${lng}` : '');

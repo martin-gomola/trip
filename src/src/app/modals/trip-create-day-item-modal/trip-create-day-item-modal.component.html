@@ -101,77 +101,105 @@
   <div class="space-y-4">
     <h2 class="text-sm font-semibold text-primary-900 dark:text-primary-50">Additional Details</h2>
 
-    <div class="grid md:grid-cols-5 gap-4">
-      <p-floatlabel variant="in" class="md:col-span-3">
-        <p-select
-          [options]="places"
-          appendTo="body"
-          optionValue="id"
-          optionLabel="name"
-          inputId="place"
-          [filter]="true"
-          filterBy="name"
-          formControlName="place"
-          [showClear]="true"
-          fluid>
-          <ng-template let-place #item>
-            <div class="flex items-center gap-2" [class.text-primary-500]="place.placeUsage">
-              @if (place.id === -1) {
-                <div class="flex size-6 items-center justify-center rounded-md bg-primary-950 text-white">
-                  <i class="pi pi-home text-xs"></i>
-                </div>
-              } @else {
-                <img [src]="place.image || place.category.image" class="rounded-md size-6 object-cover" />
-              }
-              <div>{{ place.name }}</div>
-            </div>
-          </ng-template>
-          <ng-template let-selected #selectedItem>
-            @if (selected) {
-              <div class="flex items-center gap-2">
-                @if (selected.id === -1) {
-                  <div class="flex size-5 items-center justify-center rounded-md bg-primary-950 text-white">
-                    <i class="pi pi-home text-[10px]"></i>
+    <details
+      open
+      class="rounded-lg border border-primary-200 bg-white p-3 dark:border-primary-700 dark:bg-primary-950/20">
+      <summary class="flex cursor-pointer items-center gap-2 text-sm font-semibold text-primary-800 dark:text-primary-100">
+        <i class="pi pi-map-marker text-xs"></i>
+        Trip place and timing
+      </summary>
+
+      <div class="mt-4 grid md:grid-cols-5 gap-4">
+      <div class="grid gap-2 md:col-span-3 md:grid-cols-[minmax(0,1fr)_auto]">
+        <p-floatlabel variant="in">
+          <p-select
+            [options]="places"
+            appendTo="body"
+            optionValue="id"
+            optionLabel="name"
+            inputId="place"
+            [filter]="true"
+            filterBy="name"
+            formControlName="place"
+            [showClear]="true"
+            fluid>
+            <ng-template let-place #item>
+              <div class="flex items-center gap-2" [class.text-primary-500]="place.placeUsage">
+                @if (place.id === -2) {
+                  <div class="flex size-6 items-center justify-center rounded-md bg-primary-600 text-white">
+                    <i class="pi pi-plus text-xs"></i>
+                  </div>
+                } @else if (place.id === -1) {
+                  <div class="flex size-6 items-center justify-center rounded-md bg-primary-950 text-white">
+                    <i class="pi pi-home text-xs"></i>
                   </div>
                 } @else {
-                  <img [src]="selected.image || selected.category.image" class="rounded-md size-5 object-cover" />
+                  <img [src]="place.image || place.category.image" class="rounded-md size-6 object-cover" />
                 }
-                <div>{{ selected.name }}</div>
+                <div>{{ place.name }}</div>
               </div>
-            }
-          </ng-template>
-        </p-select>
-        <label for="place">Place</label>
-      </p-floatlabel>
+            </ng-template>
+            <ng-template let-selected #selectedItem>
+              @if (selected) {
+                <div class="flex items-center gap-2">
+                  @if (selected.id === -2) {
+                    <div class="flex size-5 items-center justify-center rounded-md bg-primary-600 text-white">
+                      <i class="pi pi-plus text-[10px]"></i>
+                    </div>
+                  } @else if (selected.id === -1) {
+                    <div class="flex size-5 items-center justify-center rounded-md bg-primary-950 text-white">
+                      <i class="pi pi-home text-[10px]"></i>
+                    </div>
+                  } @else {
+                    <img [src]="selected.image || selected.category.image" class="rounded-md size-5 object-cover" />
+                  }
+                  <div>{{ selected.name }}</div>
+                </div>
+              }
+            </ng-template>
+          </p-select>
+          <label for="place">Trip place</label>
+        </p-floatlabel>
 
-      <p-floatlabel variant="in" class="md:col-span-2">
-        <p-select
-          [options]="statuses"
-          optionValue="label"
-          optionLabel="label"
-          inputId="status"
-          formControlName="status"
-          [checkmark]="true"
-          [showClear]="true"
-          fluid
-          class="capitalize">
-          <ng-template let-option #item>
-            <div class="flex items-center gap-2">
-              <div class="size-3 rounded-full" [style.background]="option.color"></div>
-              <div>{{ option.label }}</div>
-            </div>
-          </ng-template>
-          <ng-template let-selected #selectedItem>
-            @if (selected) {
+        <p-button
+          icon="pi pi-plus"
+          label="New trip place"
+          severity="secondary"
+          [outlined]="true"
+          styleClass="h-full whitespace-nowrap"
+          (onClick)="openNewTripPlaceModal()" />
+      </div>
+
+      @if (!isSelectedPlaceAccommodation()) {
+        <p-floatlabel variant="in" class="md:col-span-2">
+          <p-select
+            [options]="planningStatuses"
+            optionValue="value"
+            optionLabel="label"
+            inputId="status"
+            formControlName="status"
+            [checkmark]="true"
+            [showClear]="true"
+            fluid
+            class="capitalize">
+            <ng-template let-option #item>
               <div class="flex items-center gap-2">
-                <div class="size-3 rounded-full" [style.background]="selected.color"></div>
-                <div>{{ selected.label }}</div>
+                <div class="size-3 rounded-full" [style.background]="option.color"></div>
+                <div>{{ option.label }}</div>
               </div>
-            }
-          </ng-template>
-        </p-select>
-        <label for="status">Status</label>
-      </p-floatlabel>
+            </ng-template>
+            <ng-template let-selected #selectedItem>
+              @if (selected) {
+                <div class="flex items-center gap-2">
+                  <div class="size-3 rounded-full" [style.background]="selected.color"></div>
+                  <div>{{ selected.label }}</div>
+                </div>
+              }
+            </ng-template>
+          </p-select>
+          <label for="status">Itinerary flag</label>
+        </p-floatlabel>
+      }
 
       @if (isSelectedPlaceAccommodation()) {
         <fieldset
@@ -188,7 +216,8 @@
           </div>
 
           @if (canConfigureStay()) {
-            <div class="grid md:grid-cols-4 gap-3">
+            <div
+              class="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(7rem,0.7fr)_minmax(10rem,1fr)_minmax(10rem,1fr)_minmax(16rem,1.4fr)]">
               <p-floatlabel variant="in">
                 <p-inputnumber
                   inputId="stay_nights"
@@ -224,7 +253,7 @@
 
               <div
                 class="flex min-h-14 items-center rounded-md border border-primary-200 bg-white px-3 text-xs text-primary-600 dark:border-primary-700 dark:bg-primary-900 dark:text-primary-300">
-                One itinerary item represents the whole stay.
+                {{ accommodationPriceSummary() || 'One itinerary item represents the whole stay.' }}
               </div>
             </div>
           } @else {
@@ -234,44 +263,6 @@
           }
         </fieldset>
       }
-
-      <p-inputgroup class="h-full md:col-span-2">
-        <p-floatlabel variant="in">
-          <p-inputnumber
-            id="price"
-            formControlName="price"
-            mode="decimal"
-            [minFractionDigits]="0"
-            [maxFractionDigits]="2"
-            locale="fr-FR"
-            fluid />
-          <label for="price">Price</label>
-        </p-floatlabel>
-        @if (members.length > 1) {
-          <p-inputgroup-addon>
-            <p-button
-              [icon]="itemForm.get('paid_by')?.value ? 'pi pi-user-plus' : 'pi pi-users'"
-              [severity]="itemForm.get('paid_by')?.value ? 'primary' : 'secondary'"
-              class="h-full"
-              [text]="!itemForm.get('paid_by')?.value"
-              (onClick)="togglePriceMembersPopover($event)" />
-          </p-inputgroup-addon>
-        }
-      </p-inputgroup>
-
-      <p-floatlabel variant="in" class="md:col-span-1">
-        <p-autocomplete
-          inputId="price_currency"
-          formControlName="price_currency"
-          [suggestions]="currencySuggestions"
-          (completeMethod)="searchCurrency($event)"
-          [dropdown]="true"
-          [forceSelection]="false"
-          [showEmptyMessage]="false"
-          placeholder="EUR"
-          fluid />
-        <label for="price_currency">Currency</label>
-      </p-floatlabel>
 
       @if (!isSelectedPlaceAccommodation()) {
         <p-floatlabel variant="in" class="md:col-span-2">
@@ -319,9 +310,171 @@
           <span class="text-primary-500 dark:text-primary-400">— from place template; edit on the place to change.</span>
         </div>
       }
-    </div>
+      </div>
+    </details>
 
-    <div class="grid md:grid-cols-[auto_1fr] gap-4">
+    <details
+      [open]="isSelectedPlaceAccommodation() || itemForm.get('booking_status')?.value || itemForm.get('booking_reference')?.value"
+      class="rounded-lg border border-primary-200 bg-white p-3 dark:border-primary-700 dark:bg-primary-950/20">
+      <summary class="flex cursor-pointer items-center gap-2 text-sm font-semibold text-primary-800 dark:text-primary-100">
+        <i class="pi pi-briefcase text-xs"></i>
+        Booking
+      </summary>
+
+      <div class="mt-4 grid gap-4 md:grid-cols-4">
+        <p-floatlabel variant="in">
+          <p-select
+            [options]="bookingStatuses"
+            optionValue="value"
+            optionLabel="label"
+            inputId="booking_status"
+            formControlName="booking_status"
+            [showClear]="true"
+            [checkmark]="true"
+            appendTo="body"
+            fluid>
+            <ng-template let-option #item>
+              <div class="flex items-center gap-2">
+                <div class="size-3 rounded-full" [style.background]="option.color"></div>
+                <div>{{ option.label }}</div>
+              </div>
+            </ng-template>
+            <ng-template let-selected #selectedItem>
+              @if (selected) {
+                <div class="flex items-center gap-2">
+                  <div class="size-3 rounded-full" [style.background]="selected.color"></div>
+                  <div>{{ selected.label }}</div>
+                </div>
+              }
+            </ng-template>
+          </p-select>
+          <label for="booking_status">Booking status</label>
+        </p-floatlabel>
+
+        <p-floatlabel variant="in">
+          <input id="booking_reference" formControlName="booking_reference" pInputText fluid />
+          <label for="booking_reference">Reference</label>
+        </p-floatlabel>
+
+        <div class="space-y-1">
+          <label
+            for="booking_cancellation_deadline"
+            class="block px-1 text-xs font-medium text-primary-500 dark:text-primary-400">
+            Cancel by
+          </label>
+          <input
+            id="booking_cancellation_deadline"
+            type="date"
+            formControlName="booking_cancellation_deadline"
+            pInputText
+            fluid />
+        </div>
+      </div>
+    </details>
+
+    <details
+      open
+      class="rounded-lg border border-primary-200 bg-white p-3 dark:border-primary-700 dark:bg-primary-950/20">
+      <summary class="flex cursor-pointer items-center gap-2 text-sm font-semibold text-primary-800 dark:text-primary-100">
+        <i class="pi pi-wallet text-xs"></i>
+        Cost and payment
+      </summary>
+
+      <div class="mt-4 grid gap-4 md:grid-cols-5">
+        <p-inputgroup class="h-full md:col-span-2">
+          <p-floatlabel variant="in">
+            <p-inputnumber
+              id="price"
+              formControlName="price"
+              mode="decimal"
+              [minFractionDigits]="0"
+              [maxFractionDigits]="2"
+              locale="fr-FR"
+              fluid />
+            <label for="price">{{ priceLabel() }}</label>
+          </p-floatlabel>
+          @if (members.length > 1) {
+            <p-inputgroup-addon>
+              <p-button
+                [icon]="itemForm.get('paid_by')?.value ? 'pi pi-user-plus' : 'pi pi-users'"
+                [severity]="itemForm.get('paid_by')?.value ? 'primary' : 'secondary'"
+                class="h-full"
+                [text]="!itemForm.get('paid_by')?.value"
+                (onClick)="togglePriceMembersPopover($event)" />
+            </p-inputgroup-addon>
+          }
+        </p-inputgroup>
+
+        <p-floatlabel variant="in">
+          <p-autocomplete
+            inputId="price_currency"
+            formControlName="price_currency"
+            [suggestions]="currencySuggestions"
+            (completeMethod)="searchCurrency($event)"
+            [dropdown]="true"
+            [forceSelection]="false"
+            [showEmptyMessage]="false"
+            placeholder="EUR"
+            fluid />
+          <label for="price_currency">Currency</label>
+        </p-floatlabel>
+
+        <p-floatlabel variant="in">
+          <p-select
+            [options]="costStatuses"
+            optionValue="value"
+            optionLabel="label"
+            inputId="cost_status"
+            formControlName="cost_status"
+            [showClear]="true"
+            [checkmark]="true"
+            appendTo="body"
+            fluid>
+            <ng-template let-option #item>
+              <div class="flex items-center gap-2">
+                <div class="size-3 rounded-full" [style.background]="option.color"></div>
+                <div>{{ option.label }}</div>
+              </div>
+            </ng-template>
+            <ng-template let-selected #selectedItem>
+              @if (selected) {
+                <div class="flex items-center gap-2">
+                  <div class="size-3 rounded-full" [style.background]="selected.color"></div>
+                  <div>{{ selected.label }}</div>
+                </div>
+              }
+            </ng-template>
+          </p-select>
+          <label for="cost_status">Cost state</label>
+        </p-floatlabel>
+
+        <p-floatlabel variant="in">
+          <p-inputnumber
+            inputId="fee_amount"
+            formControlName="fee_amount"
+            mode="decimal"
+            [min]="0"
+            [minFractionDigits]="0"
+            [maxFractionDigits]="2"
+            fluid />
+          <label for="fee_amount">Fees</label>
+        </p-floatlabel>
+
+        <p-floatlabel variant="in" class="md:col-span-2">
+          <input id="fee_label" formControlName="fee_label" pInputText fluid />
+          <label for="fee_label">Fee note</label>
+        </p-floatlabel>
+      </div>
+    </details>
+
+    <details
+      class="rounded-lg border border-primary-200 bg-white p-3 dark:border-primary-700 dark:bg-primary-950/20">
+      <summary class="flex cursor-pointer items-center gap-2 text-sm font-semibold text-primary-800 dark:text-primary-100">
+        <i class="pi pi-paperclip text-xs"></i>
+        Files and notes
+      </summary>
+
+      <div class="mt-4 grid md:grid-cols-[auto_1fr] gap-4">
       <div
         class="flex flex-col items-center justify-center gap-2 p-4 bg-primary-50 dark:bg-primary-800 rounded-lg border border-primary-200 dark:border-primary-700">
         <div class="relative group">
@@ -421,7 +574,8 @@
           }
         </div>
       </div>
-    </div>
+      </div>
+    </details>
   </div>
 
   <div class="flex justify-end gap-3 pt-4 border-t border-primary-200 dark:border-primary-700">

@@ -13,6 +13,10 @@ export function generateTripCSVFile(trip: Trip): void {
     'Price',
     'Currency',
     'Status',
+    'Booking Status',
+    'Cost State',
+    'Fees',
+    'Fee Note',
   ];
   const rows: string[] = [headers.join(',')];
   trip.days.forEach((day) => {
@@ -41,6 +45,10 @@ export function generateTripCSVFile(trip: Trip): void {
         item.price ?? '',
         escape_rfc4180(item.price_currency ?? item.place?.price_currency ?? trip.currency ?? ''),
         escape_rfc4180(statusLabel),
+        escape_rfc4180(item.booking_status ?? ''),
+        escape_rfc4180(item.cost_status ?? ''),
+        item.fee_amount ?? '',
+        escape_rfc4180(item.fee_label ?? ''),
       ];
 
       rows.push(rowData.join(','));

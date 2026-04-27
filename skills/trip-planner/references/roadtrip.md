@@ -53,11 +53,15 @@ Place fields:
 - `category`: existing TRIP category name, default `Accommodation`.
 - `lat`, `lng`, `place`: required for places.
 - `description`, `allowdog`, `favorite`, `visited`, `restroom`: optional.
+- `trip_only`: set `true` for places that should live only inside the trip.
+- `price`, `price_currency`: for accommodations, use nightly price on the place.
+- `checkin_time`, `checkout_time`: accommodation defaults, `HH:MM`.
 
 Day fields:
 
 - `label`: display label.
 - `date`: ISO date, optional when dates are unknown.
+- `day_start_time`: optional `HH:MM` anchor for route/ETA planning.
 - `notes`: optional.
 - `items`: list of itinerary items.
 
@@ -68,8 +72,14 @@ Item fields:
 - `comment`: optional.
 - `place`: optional place key from `places`.
 - `lat`, `lng`: optional coordinates when no place is attached.
-- `status`: optional; one of `pending`, `booked`, `constraint`, `optional`.
-- `price`, `paid_by`: optional.
+- `status`: optional planning flag for non-booking logistics; one of `pending`, `booked`, `constraint`, `optional`. Avoid setting it on accommodation rows when `booking_status` already describes the booking state.
+- `price`, `price_currency`, `paid_by`: optional. For accommodation stays, `price` is the full stay total.
+- `booking_status`: optional; one of `not booked`, `requested`, `booked`, `cancelled`.
+- `booking_reference`, `booking_cancellation_deadline`: optional booking metadata; deadline is `YYYY-MM-DD`.
+- `cost_status`: optional; one of `estimated`, `confirmed`, `paid`.
+- `fee_amount`, `fee_label`: optional persisted extra fee metadata such as cleaning, dog, or tourist tax.
+- `duration_minutes`: optional stop duration in minutes.
+- `stay_checkout_day`, `stay_checkout_time`: accommodation stay checkout day reference by day `date` or `label`, plus `HH:MM`.
 
 ## Planning Rules
 
@@ -77,4 +87,7 @@ Item fields:
 - Do not invent opening hours, prices, or booking rules. Browse current sources for those.
 - Prefer a first useful skeleton over pretending to know every detail. Mark uncertain times as placeholders in comments.
 - Keep source URLs in `trip.notes` or item comments so future agents can continue without re-researching.
-- Use idempotent names: rerunning `roadtrip apply` updates by matching the trip name, place names, day dates/labels, and item time/text.
+- Use idempotent names: rerunning `roadtrip apply` updates by matching the trip name, place names, day dates/labels, and item time/text. If an item was retimed in the app, the tool can update it by unique day/text before creating a new row.
+- When the UI gains new trip-planning fields, update this roadtrip tool in the same change. The import path should understand the same booking, cost, stay, fee, and trip-only-place concepts as the modal.
+- Create trip-only sample places for trip planning placeholders; do not pollute the global place list with temporary accommodations or one-off stops.
+- For accommodation, store nightly price on the place and the full calculated stay price on the item. Persist extra fees separately with `fee_amount` and `fee_label`.

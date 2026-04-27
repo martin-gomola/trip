@@ -72,6 +72,12 @@ export interface TripItem {
   price_currency?: string;
   day_id: number;
   status?: string | TripStatus;
+  booking_status?: TripBookingStatus | null;
+  booking_reference?: string | null;
+  booking_cancellation_deadline?: string | null;
+  cost_status?: TripCostStatus | null;
+  fee_amount?: number | null;
+  fee_label?: string | null;
   image?: string;
   image_id?: number;
   gpx?: string;
@@ -86,6 +92,9 @@ export interface TripStatus {
   label: string;
   color: string;
 }
+
+export type TripBookingStatus = 'not booked' | 'requested' | 'booked' | 'cancelled';
+export type TripCostStatus = 'estimated' | 'confirmed' | 'paid';
 
 export interface FlattenedTripItem {
   td_id: number;
@@ -102,6 +111,12 @@ export interface FlattenedTripItem {
   lng?: number;
   day_id: number;
   status?: TripStatus;
+  booking_status?: TripBookingStatus | null;
+  booking_reference?: string | null;
+  booking_cancellation_deadline?: string | null;
+  cost_status?: TripCostStatus | null;
+  fee_amount?: number | null;
+  fee_label?: string | null;
   distance?: number;
   image?: string;
   image_id?: number;
@@ -188,6 +203,14 @@ export interface ViewTripItem extends TripItem {
    * narrate the appointment, distinct from the computed arrival ETA.
    */
   effectiveCheckinTime?: string;
+}
+
+export interface ItineraryWarning {
+  id: string;
+  label: string;
+  severity: 'danger' | 'warn' | 'info';
+  icon: string;
+  count: number;
 }
 
 export interface DayViewModel {

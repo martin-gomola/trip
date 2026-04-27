@@ -142,7 +142,7 @@
 
       <div class="min-w-0">
         <span class="block text-xs font-semibold uppercase tracking-wide text-primary-500 dark:text-primary-400 mb-1">
-          Price
+          {{ isAccommodation() ? 'Price/night' : 'Price' }}
         </span>
         <div class="flex items-center h-8 text-sm text-primary-900 dark:text-primary-100 min-w-0">
           <span class="truncate"

@@ -37,6 +37,7 @@ import {
   HighlightData,
   TripRetimingChange,
   PrintMapProvider,
+  ItineraryWarning,
 } from '../../types/trip';
 import { Category, Place } from '../../types/poi';
 import {
@@ -123,7 +124,7 @@ const VIRTUAL_ITEM_ID_OFFSET = 1_000_000_000;
 
 const ETA_DELTA_BADGE_THRESHOLD_MIN = 5;
 
-type TripItemFormValue = Omit<TripItem, 'place'> & { place?: number | null };
+type TripItemFormValue = Omit<TripItem, 'place'> & { place?: number | null; new_place?: Partial<Place> | null };
 type NewTripItemFormValue = Omit<TripItemFormValue, 'day_id'> & { day_id: number[] };
 
 @Component({
@@ -203,6 +204,8 @@ export class TripComponent implements AfterViewInit, OnDestroy {
   selectedItemIds = signal<Set<number>>(new Set());
   selectedDay = signal<TripDay | null>(null);
   isTextAndPlaceToggled = signal<boolean>(false);
+  draggedItemId = signal<number | null>(null);
+  dragOverItemId = signal<number | null>(null);
 
   panelWidth = signal<number | null>(null);
   panelDeltaX = 0;
@@ -335,8 +338,9 @@ export class TripComponent implements AfterViewInit, OnDestroy {
         let hasPlaces = false;
 
         const items = displayItems.map((item) => {
-          const statusObj =
+          const rawStatusObj =
             typeof item.status === 'string' ? statusesMap.get(item.status) : (item.status as TripStatus | undefined);
+          const statusObj = this.isAccommodationPlace(item.place) ? undefined : rawStatusObj;
 
           const lat = item.isVirtualStay ? null : (item.lat ?? item.place?.lat);
           const lng = item.isVirtualStay ? null : (item.lng ?? item.place?.lng);
@@ -578,6 +582,16 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     return 'bg-primary-100 text-primary-800';
   }
 
+  itineraryWarningClass(warning: ItineraryWarning): string {
+    if (warning.severity === 'danger') {
+      return 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200';
+    }
+    if (warning.severity === 'warn') {
+      return 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200';
+    }
+    return 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200';
+  }
+
   isAccommodationStay(item: Partial<TripItem>): boolean {
     return this.isAccommodationPlace(item.place) && item.stay_checkout_day_id != null && !!item.stay_checkout_time;
   }
@@ -780,6 +794,98 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     return this.tripViewModel()
       .flatMap((day) => day.items)
       .filter((item) => item.status && ['pending', 'constraint'].includes(item.status.label));
+  });
+  itineraryWarnings = computed<ItineraryWarning[]>(() => {
+    const items = this.tripViewModel()
+      .flatMap((day) => day.items)
+      .filter((item) => !item.isVirtualStay && !item.isVirtualCheckout);
+    const warnings: ItineraryWarning[] = [];
+
+    const missingCoordinates = items.filter((item) => {
+      const lat = item.lat ?? item.place?.lat;
+      const lng = item.lng ?? item.place?.lng;
+      return lat == null || lng == null;
+    }).length;
+    if (missingCoordinates) {
+      warnings.push({
+        id: 'missing-coordinates',
+        label: `${missingCoordinates} missing coordinate${missingCoordinates === 1 ? '' : 's'}`,
+        severity: 'danger',
+        icon: 'pi pi-map-marker',
+        count: missingCoordinates,
+      });
+    }
+
+    const unbookedStays = items.filter(
+      (item) =>
+        this.isAccommodationPlace(item.place) &&
+        item.booking_status !== 'booked' &&
+        item.booking_status !== 'cancelled',
+    ).length;
+    if (unbookedStays) {
+      warnings.push({
+        id: 'unbooked-stays',
+        label: `${unbookedStays} stay${unbookedStays === 1 ? '' : 's'} not booked`,
+        severity: 'warn',
+        icon: 'pi pi-building',
+        count: unbookedStays,
+      });
+    }
+
+    const unpaidConfirmed = items.filter(
+      (item) =>
+        !!item.price &&
+        item.cost_status !== 'paid' &&
+        (item.cost_status === 'confirmed' || item.booking_status === 'booked'),
+    ).length;
+    if (unpaidConfirmed) {
+      warnings.push({
+        id: 'unpaid-confirmed',
+        label: `${unpaidConfirmed} unpaid confirmed cost${unpaidConfirmed === 1 ? '' : 's'}`,
+        severity: 'warn',
+        icon: 'pi pi-wallet',
+        count: unpaidConfirmed,
+      });
+    }
+
+    const estimatedCosts = items.filter((item) => !!item.price && item.cost_status === 'estimated').length;
+    if (estimatedCosts) {
+      warnings.push({
+        id: 'estimated-costs',
+        label: `${estimatedCosts} estimated cost${estimatedCosts === 1 ? '' : 's'}`,
+        severity: 'info',
+        icon: 'pi pi-calculator',
+        count: estimatedCosts,
+      });
+    }
+
+    const lateItems = items.filter(
+      (item) => item.etaDeltaMinutes != null && item.etaDeltaMinutes >= ETA_DELTA_BADGE_THRESHOLD_MIN,
+    ).length;
+    if (lateItems) {
+      warnings.push({
+        id: 'late-items',
+        label: `${lateItems} timing conflict${lateItems === 1 ? '' : 's'}`,
+        severity: 'danger',
+        icon: 'pi pi-clock',
+        count: lateItems,
+      });
+    }
+
+    const freeWindows = items.filter(
+      (item) => item.freeWindowMinutes != null && item.freeWindowMinutes >= this.ADD_STOP_THRESHOLD_MIN,
+    ).length;
+    if (freeWindows) {
+      warnings.push({
+        id: 'free-windows',
+        label: `${freeWindows} useful gap${freeWindows === 1 ? '' : 's'}`,
+        severity: 'info',
+        icon: 'pi pi-plus-circle',
+        count: freeWindows,
+      });
+    }
+
+    return warnings;
   });
   itemsToPasteCount = computed(() => this.utilsService.packingListToCopy.length);
   highlightLayerData = computed<HighlightData | null>(() => {
@@ -1223,15 +1329,32 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     return { ...item, status: statusObj };
   }
 
+  planningStatusDisplayLabel(status?: TripStatus | string | null): string {
+    const label = typeof status === 'string' ? status : status?.label;
+    switch (label) {
+      case 'pending':
+        return 'To decide';
+      case 'booked':
+        return 'Locked in';
+      case 'constraint':
+        return 'Constraint';
+      case 'optional':
+        return 'Optional';
+      default:
+        return label ?? '';
+    }
+  }
+
   openMenuTripDayActions(event: any, day: TripDay) {
     this.menuTripDayActionsItems = [
       {
         label: 'Actions',
         items: [
           {
-            label: 'Plan',
+            label: 'Add item',
             icon: 'pi pi-plus',
-            command: () => this.addItem(),
+            disabled: this.trip()!.archived,
+            command: () => this.addItemToDay(day),
           },
           {
             label: 'Recalculate Times',
@@ -1302,7 +1425,7 @@ export class TripComponent implements AfterViewInit, OnDestroy {
             command: () => this.addItem(undefined, place.id),
           },
           {
-            label: 'Edit place (template)',
+            label: place.trip_only ? 'Edit trip place' : 'Edit place template',
             icon: 'pi pi-pencil',
             disabled: this.trip()!.archived,
             command: () => this.editPlace(place),
@@ -1328,6 +1451,12 @@ export class TripComponent implements AfterViewInit, OnDestroy {
             label: 'Summary',
             icon: 'pi pi-minus',
             command: () => this.onDayClick(d),
+          },
+          {
+            label: 'Add item',
+            icon: 'pi pi-plus',
+            disabled: this.trip()!.archived,
+            command: () => this.addItemToDay(d),
           },
           {
             label: 'Highlight',
@@ -1460,6 +1589,12 @@ export class TripComponent implements AfterViewInit, OnDestroy {
       {
         label: 'Actions',
         items: [
+          {
+            label: 'Add item',
+            icon: 'pi pi-plus',
+            disabled: this.trip()!.archived,
+            command: () => this.addItemToDay(d),
+          },
           {
             label: 'Open Navigation',
             icon: 'pi pi-directions',
@@ -1898,11 +2033,12 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     modal.onClose.pipe(take(1)).subscribe((newItem: NewTripItemFormValue | null) => {
       if (!newItem) return;
 
-      this.ensureTripPlace(newItem.place)
+      this.persistPendingTripPlace(newItem)
         .pipe(
-          switchMap(() => {
-            const obs$ = newItem.day_id.map((day_id) =>
-              this.apiService.postTripDayItem({ ...newItem, day_id } as TripItem, this.trip()!.id, day_id),
+          switchMap((item) => this.ensureTripPlace(item.place).pipe(map(() => item))),
+          switchMap((item) => {
+            const obs$ = item.day_id.map((day_id) =>
+              this.apiService.postTripDayItem({ ...item, day_id } as TripItem, this.trip()!.id, day_id),
             );
             return forkJoin(obs$);
           }),
@@ -1930,6 +2066,130 @@ export class TripComponent implements AfterViewInit, OnDestroy {
           },
         });
     });
+  }
+
+  addItemToDay(day: TripDay) {
+    if (this.trip()?.archived) return;
+    this.addItem(day.id, undefined, { prefillTime: this.suggestNextItemTime(day) });
+  }
+
+  suggestNextItemTime(day: TripDay): string | undefined {
+    const lastTimedItem = day.items
+      .filter((item) => !this.isAccommodationStay(item))
+      .slice()
+      .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
+      .reverse()
+      .find((item) => this.parseTimeMinutes(item.time) !== null);
+
+    const base = lastTimedItem
+      ? this.parseTimeMinutes(lastTimedItem.time)! + (lastTimedItem.duration_minutes ?? lastTimedItem.place?.duration ?? 60)
+      : this.parseTimeMinutes(day.day_start_time ?? '09:00');
+    if (base == null) return undefined;
+    return this.formatTimeMinutes(Math.min(base, 23 * 60 + 45));
+  }
+
+  canDragDayItem(item: ViewTripItem): boolean {
+    return (
+      !this.trip()?.archived &&
+      !this.isMultiSelectMode() &&
+      !this.searchQuery().trim() &&
+      !item.isVirtualStay &&
+      !item.isVirtualCheckout
+    );
+  }
+
+  onItemDragStart(event: DragEvent, item: ViewTripItem) {
+    if (!this.canDragDayItem(item)) {
+      event.preventDefault();
+      return;
+    }
+    this.draggedItemId.set(item.id);
+    event.dataTransfer?.setData('text/plain', String(item.id));
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+  }
+
+  onItemDragOver(event: DragEvent, day: TripDay, target: ViewTripItem) {
+    const draggedItemId = this.draggedItemId();
+    if (!this.canDropDayItem(day, target, draggedItemId)) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    this.dragOverItemId.set(target.id);
+  }
+
+  onItemDragLeave(item: ViewTripItem) {
+    if (this.dragOverItemId() === item.id) this.dragOverItemId.set(null);
+  }
+
+  onItemDragEnd() {
+    this.draggedItemId.set(null);
+    this.dragOverItemId.set(null);
+  }
+
+  onItemDrop(event: DragEvent, day: TripDay, target: ViewTripItem) {
+    event.preventDefault();
+    const draggedItemId = this.draggedItemId();
+    this.onItemDragEnd();
+    if (!this.canDropDayItem(day, target, draggedItemId) || draggedItemId == null) return;
+    this.reorderDayItem(day, draggedItemId, target.id);
+  }
+
+  canDropDayItem(day: TripDay, target: ViewTripItem, draggedItemId: number | null): boolean {
+    if (draggedItemId == null || draggedItemId === target.id || !this.canDragDayItem(target)) return false;
+    return day.items.some((item) => item.id === draggedItemId);
+  }
+
+  reorderDayItem(day: TripDay, draggedItemId: number, targetItemId: number) {
+    const originalItems = day.items
+      .slice()
+      .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+    const fromIndex = originalItems.findIndex((item) => item.id === draggedItemId);
+    const toIndex = originalItems.findIndex((item) => item.id === targetItemId);
+    if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return;
+
+    const reorderedItems = [...originalItems];
+    const [movedItem] = reorderedItems.splice(fromIndex, 1);
+    reorderedItems.splice(toIndex, 0, movedItem);
+
+    const timeSlots = originalItems.map((item) => item.time ?? null);
+    const changes = reorderedItems
+      .map((item, index) => ({ item, newTime: timeSlots[index] }))
+      .filter((change) => change.item.time !== change.newTime);
+    if (!changes.length) return;
+
+    this.utilsService.setLoading('Reordering items...');
+    forkJoin(
+      changes.map((change) =>
+        this.apiService.putTripDayItem({ time: change.newTime }, this.trip()!.id, day.id, change.item.id),
+      ),
+    )
+      .pipe(take(1))
+      .subscribe({
+        next: (updatedItems) => {
+          const updatedById = new Map(updatedItems.map((item) => [item.id, item]));
+          this.trip.update((current) => {
+            if (!current) return null;
+            const days = current.days.map((currentDay) => {
+              if (currentDay.id !== day.id) return currentDay;
+              return {
+                ...currentDay,
+                items: currentDay.items.map((item) => updatedById.get(item.id) ?? item),
+              };
+            });
+            return { ...current, days };
+          });
+          const selected = this.selectedItem();
+          if (selected && updatedById.has(selected.id)) {
+            this.selectedItem.set(this.normalizeItem(updatedById.get(selected.id)!));
+          }
+          this.utilsService.setLoading('');
+          this.utilsService.toast('success', 'Reordered', 'Day order updated');
+        },
+        error: (err) => {
+          this.utilsService.setLoading('');
+          this.utilsService.toast('error', 'Reorder failed', 'Could not update item order');
+          console.error('Reorder failed:', err);
+        },
+      });
   }
 
   addHomeItem(dayId?: number) {
@@ -1981,10 +2241,11 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     modal.onClose.pipe(take(1)).subscribe((updated: TripItemFormValue | null) => {
       if (!updated) return;
 
-      this.ensureTripPlace(updated.place)
+      this.persistPendingTripPlace(updated)
         .pipe(
-          switchMap(() =>
-            this.apiService.putTripDayItem(updated as Partial<TripItem>, this.trip()!.id, item.day_id, item.id),
+          switchMap((itemUpdate) => this.ensureTripPlace(itemUpdate.place).pipe(map(() => itemUpdate))),
+          switchMap((itemUpdate) =>
+            this.apiService.putTripDayItem(itemUpdate as Partial<TripItem>, this.trip()!.id, item.day_id, item.id),
           ),
         )
         .subscribe((newItem) => {
@@ -2031,6 +2292,24 @@ export class TripComponent implements AfterViewInit, OnDestroy {
       tap((updatedTrip) => {
         this.trip.set(updatedTrip);
       }),
+    );
+  }
+
+  persistPendingTripPlace<T extends TripItemFormValue | NewTripItemFormValue>(item: T): Observable<T> {
+    const draft = item.new_place;
+    if (!draft) return of(item);
+
+    const { new_place: _newPlace, ...itemWithoutDraft } = item;
+    const place = { ...draft, trip_only: true } as Place;
+    return this.apiService.postPlace(place).pipe(
+      switchMap((createdPlace) =>
+        this.apiService
+          .putTrip({ place_ids: [createdPlace.id, ...this.places().map((p) => p.id)] }, this.trip()!.id)
+          .pipe(
+            tap((updatedTrip) => this.trip.set(updatedTrip)),
+            map(() => ({ ...itemWithoutDraft, place: createdPlace.id }) as T),
+          ),
+      ),
     );
   }
 
@@ -2225,7 +2504,7 @@ export class TripComponent implements AfterViewInit, OnDestroy {
   addPlace(e?: any) {
     const opts = e ? { data: { place: e.latlng } } : {};
     const modal: DynamicDialogRef = this.dialogService.open(PlaceCreateModalComponent, {
-      header: 'Create Place',
+      header: 'Create Trip Place',
       modal: true,
       appendTo: 'body',
       closable: true,
@@ -2245,7 +2524,7 @@ export class TripComponent implements AfterViewInit, OnDestroy {
         if (!place) return;
 
         this.apiService
-          .postPlace(place)
+          .postPlace({ ...place, trip_only: true })
           .pipe(
             switchMap((createdPlace: Place) =>
               this.apiService.putTrip(
@@ -2264,7 +2543,7 @@ export class TripComponent implements AfterViewInit, OnDestroy {
 
   editPlace(pEdit: Place) {
     const modal: DynamicDialogRef = this.dialogService.open(PlaceCreateModalComponent, {
-      header: 'Edit Place',
+      header: pEdit.trip_only ? 'Edit Trip Place' : 'Edit Place Template',
       modal: true,
       appendTo: 'body',
       closable: true,
@@ -2312,7 +2591,7 @@ export class TripComponent implements AfterViewInit, OnDestroy {
 
   manageTripPlaces() {
     const modal: DynamicDialogRef = this.dialogService.open(TripPlaceSelectModalComponent, {
-      header: 'Attached Places',
+      header: 'Trip Places',
       modal: true,
       appendTo: 'body',
       closable: true,

@@ -31,6 +31,7 @@ export interface Place {
   visited?: boolean;
   favorite?: boolean;
   restroom?: boolean;
+  trip_only?: boolean;
 }
 
 export interface ProviderBoundaries {

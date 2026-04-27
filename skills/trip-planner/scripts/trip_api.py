@@ -44,11 +44,15 @@ API_CATALOG: dict[str, dict[str, Any]] = {
             "allowdog",
             "description",
             "price",
+            "price_currency",
             "duration",
+            "checkin_time",
+            "checkout_time",
             "favorite",
             "visited",
             "gpx",
             "restroom",
+            "trip_only",
         ],
         "cli": (
             "trip_api.py place create --category Culture --name 'Example' "
@@ -98,12 +102,14 @@ ROADTRIP_TEMPLATE: dict[str, Any] = {
             "description": "Why this place matters and source URL.",
             "favorite": True,
             "visited": False,
+            "trip_only": True,
         }
     ],
     "days": [
         {
             "label": "Day 1 - Travel",
             "date": "2026-05-08",
+            "day_start_time": "08:00",
             "notes": "Day-level notes.",
             "items": [
                 {
@@ -112,6 +118,9 @@ ROADTRIP_TEMPLATE: dict[str, Any] = {
                     "comment": "Confirm check-in time.",
                     "place": "destination",
                     "status": "pending",
+                    "booking_status": "requested",
+                    "cost_status": "estimated",
+                    "fee_amount": 0,
                 },
             ],
         }
@@ -119,6 +128,8 @@ ROADTRIP_TEMPLATE: dict[str, Any] = {
 }
 
 ROADTRIP_STATUSES = {"pending", "booked", "constraint", "optional"}
+ROADTRIP_BOOKING_STATUSES = {"not booked", "requested", "booked", "cancelled"}
+ROADTRIP_COST_STATUSES = {"estimated", "confirmed", "paid"}
 TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 
@@ -139,6 +150,8 @@ from trip.models.models import (
     Category,
     Place,
     Trip,
+    TripBookingStatusEnum,
+    TripCostStatusEnum,
     TripDay,
     TripItem,
     TripItemStatusEnum,
@@ -203,6 +216,14 @@ def serialize_trip(trip):
                         "lat": item.lat,
                         "lng": item.lng,
                         "status": item.status.value if item.status else None,
+                        "booking_status": item.booking_status.value if item.booking_status else None,
+                        "booking_reference": item.booking_reference,
+                        "booking_cancellation_deadline": item.booking_cancellation_deadline.isoformat()
+                        if item.booking_cancellation_deadline
+                        else None,
+                        "cost_status": item.cost_status.value if item.cost_status else None,
+                        "fee_amount": item.fee_amount,
+                        "fee_label": item.fee_label,
                     }
                     for item in sorted(day.items, key=lambda item: item.time)
                 ],
@@ -236,7 +257,21 @@ def upsert_place(session, user, spec):
         if key in spec and getattr(place, key) != float(spec[key]):
             setattr(place, key, float(spec[key]))
             changed = True
-    for key in ["place", "description", "allowdog", "favorite", "visited", "restroom", "price", "duration", "gpx"]:
+    for key in [
+        "place",
+        "description",
+        "allowdog",
+        "favorite",
+        "visited",
+        "restroom",
+        "price",
+        "price_currency",
+        "duration",
+        "checkin_time",
+        "checkout_time",
+        "gpx",
+        "trip_only",
+    ]:
         if key in spec and getattr(place, key) != spec[key]:
             setattr(place, key, spec[key])
             changed = True
@@ -251,6 +286,34 @@ def upsert_place(session, user, spec):
     if changed:
         return place, "updated"
     return place, "existing"
+
+
+def find_item(session, day_id, item_spec, place_id):
+    exact = session.exec(
+        select(TripItem).where(
+            TripItem.day_id == day_id,
+            TripItem.time == item_spec["time"],
+            TripItem.text == item_spec["text"],
+        )
+    ).first()
+    if exact:
+        return exact
+
+    text_matches = session.exec(
+        select(TripItem).where(
+            TripItem.day_id == day_id,
+            TripItem.text == item_spec["text"],
+        )
+    ).all()
+    if len(text_matches) == 1:
+        return text_matches[0]
+
+    if place_id is not None:
+        place_matches = [candidate for candidate in text_matches if candidate.place_id == place_id]
+        if len(place_matches) == 1:
+            return place_matches[0]
+
+    return None
 
 
 def apply(payload):
@@ -298,6 +361,8 @@ def apply(payload):
 
         day_events = []
         item_events = []
+        day_by_label = {}
+        day_by_date = {}
         for day_spec in plan["days"]:
             dt = parse_date(day_spec.get("date"))
             existing_days = list(trip.days)
@@ -307,14 +372,25 @@ def apply(payload):
             if not day:
                 day = next((candidate for candidate in existing_days if candidate.label == day_spec["label"]), None)
             if not day:
-                day = TripDay(label=day_spec["label"], dt=dt, notes=day_spec.get("notes"), trip_id=trip.id)
+                day = TripDay(
+                    label=day_spec["label"],
+                    dt=dt,
+                    notes=day_spec.get("notes"),
+                    day_start_time=day_spec.get("day_start_time"),
+                    trip_id=trip.id,
+                )
                 session.add(day)
                 session.commit()
                 session.refresh(day)
                 day_events.append({"event": "created", "id": day.id, "label": day.label})
             else:
                 updated = False
-                for key, value in {"label": day_spec["label"], "dt": dt, "notes": day_spec.get("notes")}.items():
+                for key, value in {
+                    "label": day_spec["label"],
+                    "dt": dt,
+                    "notes": day_spec.get("notes"),
+                    "day_start_time": day_spec.get("day_start_time"),
+                }.items():
                     if value is not None and getattr(day, key) != value:
                         setattr(day, key, value)
                         updated = True
@@ -326,19 +402,32 @@ def apply(payload):
                 else:
                     day_events.append({"event": "existing", "id": day.id, "label": day.label})
 
+            day_by_label[day.label] = day
+            if day.dt:
+                day_by_date[day.dt.isoformat()] = day
+
+        for day_spec in plan["days"]:
+            dt = parse_date(day_spec.get("date"))
+            day = day_by_date.get(dt.isoformat()) if dt else None
+            if not day:
+                day = day_by_label[day_spec["label"]]
+
             for item_spec in day_spec.get("items", []):
-                item = session.exec(
-                    select(TripItem).where(
-                        TripItem.day_id == day.id,
-                        TripItem.time == item_spec["time"],
-                        TripItem.text == item_spec["text"],
-                    )
-                ).first()
                 place_id = None
                 if item_spec.get("place"):
                     place_id = place_by_key[item_spec["place"]].id
-                status = item_spec.get("status") or "pending"
-                status_value = TripItemStatusEnum(status)
+                item = find_item(session, day.id, item_spec, place_id)
+                status = item_spec.get("status")
+                status_value = TripItemStatusEnum(status) if status else None
+                booking_status = item_spec.get("booking_status")
+                cost_status = item_spec.get("cost_status")
+                checkout_ref = item_spec.get("stay_checkout_day")
+                checkout_day_id = None
+                if checkout_ref:
+                    checkout_day = day_by_date.get(str(checkout_ref)) or day_by_label.get(str(checkout_ref))
+                    if not checkout_day:
+                        raise SystemExit(f"Unknown stay checkout day: {checkout_ref}")
+                    checkout_day_id = checkout_day.id
                 fields = {
                     "time": item_spec["time"],
                     "text": item_spec["text"],
@@ -346,9 +435,19 @@ def apply(payload):
                     "lat": item_spec.get("lat"),
                     "lng": item_spec.get("lng"),
                     "price": item_spec.get("price"),
+                    "price_currency": item_spec.get("price_currency"),
                     "paid_by": item_spec.get("paid_by"),
                     "place_id": place_id,
                     "status": status_value,
+                    "booking_status": TripBookingStatusEnum(booking_status) if booking_status else None,
+                    "booking_reference": item_spec.get("booking_reference"),
+                    "booking_cancellation_deadline": parse_date(item_spec.get("booking_cancellation_deadline")),
+                    "cost_status": TripCostStatusEnum(cost_status) if cost_status else None,
+                    "fee_amount": item_spec.get("fee_amount"),
+                    "fee_label": item_spec.get("fee_label"),
+                    "stay_checkout_day_id": checkout_day_id,
+                    "stay_checkout_time": item_spec.get("stay_checkout_time"),
+                    "duration_minutes": item_spec.get("duration_minutes"),
                     "day_id": day.id,
                 }
                 if not item:
@@ -605,6 +704,13 @@ def validate_roadtrip_plan(plan: dict[str, Any]) -> list[str]:
     if not isinstance(days, list) or not days:
         errors.append("days must be a non-empty list")
         days = []
+    day_refs = {
+        str(day.get(ref_field))
+        for day in days
+        if isinstance(day, dict)
+        for ref_field in ("label", "date")
+        if day.get(ref_field)
+    }
     for day_index, day in enumerate(days):
         day_prefix = f"days[{day_index}]"
         if not isinstance(day, dict):
@@ -636,7 +742,7 @@ def validate_roadtrip_plan(plan: dict[str, Any]) -> list[str]:
                 errors.append(f"{item_prefix}.time must be HH:MM")
             if item.get("place") and item["place"] not in place_keys:
                 errors.append(f"{item_prefix}.place references unknown place key {item['place']!r}")
-            for field in ["lat", "lng", "price"]:
+            for field in ["lat", "lng", "price", "fee_amount", "duration_minutes"]:
                 if field in item and item[field] is not None:
                     try:
                         float(item[field])
@@ -644,6 +750,24 @@ def validate_roadtrip_plan(plan: dict[str, Any]) -> list[str]:
                         errors.append(f"{item_prefix}.{field} must be numeric")
             if item.get("status") and item["status"] not in ROADTRIP_STATUSES:
                 errors.append(f"{item_prefix}.status must be one of {', '.join(sorted(ROADTRIP_STATUSES))}")
+            if item.get("booking_status") and item["booking_status"] not in ROADTRIP_BOOKING_STATUSES:
+                errors.append(
+                    f"{item_prefix}.booking_status must be one of {', '.join(sorted(ROADTRIP_BOOKING_STATUSES))}"
+                )
+            if item.get("cost_status") and item["cost_status"] not in ROADTRIP_COST_STATUSES:
+                errors.append(f"{item_prefix}.cost_status must be one of {', '.join(sorted(ROADTRIP_COST_STATUSES))}")
+            if item.get("stay_checkout_day") and str(item["stay_checkout_day"]) not in day_refs:
+                errors.append(f"{item_prefix}.stay_checkout_day references unknown day {item['stay_checkout_day']!r}")
+            for field in ["stay_checkout_time"]:
+                if item.get(field) and not TIME_RE.fullmatch(str(item[field])):
+                    errors.append(f"{item_prefix}.{field} must be HH:MM")
+            if item.get("booking_cancellation_deadline"):
+                try:
+                    from datetime import date
+
+                    date.fromisoformat(item["booking_cancellation_deadline"])
+                except (TypeError, ValueError):
+                    errors.append(f"{item_prefix}.booking_cancellation_deadline must be YYYY-MM-DD")
     return errors
 
 

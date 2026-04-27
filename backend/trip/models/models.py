@@ -86,6 +86,19 @@ class TripItemStatusEnum(str, Enum):
     OPTIONAL = "optional"
 
 
+class TripBookingStatusEnum(str, Enum):
+    NOT_BOOKED = "not booked"
+    REQUESTED = "requested"
+    BOOKED = "booked"
+    CANCELLED = "cancelled"
+
+
+class TripCostStatusEnum(str, Enum):
+    ESTIMATED = "estimated"
+    CONFIRMED = "confirmed"
+    PAID = "paid"
+
+
 class PackingListCategoryEnum(str, Enum):
     CLOTHES = "clothes"
     TOILETRIES = "toiletries"
@@ -510,6 +523,7 @@ class PlaceBase(SQLModel):
     visited: bool | None = None
     gpx: str | None = None
     restroom: bool | None = None
+    trip_only: bool | None = False
 
 
 class Place(PlaceBase, table=True):
@@ -582,6 +596,7 @@ class PlaceRead(PlaceBase):
             if exclude_gpx
             else obj.gpx,  # Generic PlaceRead. Avoid large resp.
             restroom=obj.restroom,
+            trip_only=obj.trip_only,
         )
 
 
@@ -775,6 +790,12 @@ class TripItemBase(SQLModel):
     price_currency: str | None = None
     lng: float | None = None
     status: TripItemStatusEnum | None = None
+    booking_status: TripBookingStatusEnum | None = None
+    booking_reference: str | None = None
+    booking_cancellation_deadline: date | None = None
+    cost_status: TripCostStatusEnum | None = None
+    fee_amount: float | None = None
+    fee_label: str | None = None
     gpx: str | None = None
     stay_checkout_day_id: int | None = None
     stay_checkout_time: TimeString | None = None
@@ -860,6 +881,12 @@ class TripItemRead(TripItemBase):
             price_currency=obj.price_currency,
             day_id=obj.day_id,
             status=obj.status,
+            booking_status=obj.booking_status,
+            booking_reference=obj.booking_reference,
+            booking_cancellation_deadline=obj.booking_cancellation_deadline,
+            cost_status=obj.cost_status,
+            fee_amount=obj.fee_amount,
+            fee_label=obj.fee_label,
             place=PlaceRead.serialize(obj.place) if obj.place else None,
             image=_prefix_assets_url(obj.image.filename) if obj.image else None,
             image_id=obj.image_id,
@@ -912,6 +939,12 @@ class TripShareItemRead(TripItemBase):
             price_currency=obj.price_currency,
             day_id=obj.day_id,
             status=obj.status,
+            booking_status=obj.booking_status,
+            booking_reference=obj.booking_reference,
+            booking_cancellation_deadline=obj.booking_cancellation_deadline,
+            cost_status=obj.cost_status,
+            fee_amount=obj.fee_amount,
+            fee_label=obj.fee_label,
             place=PlaceRead.serialize(obj.place) if obj.place else None,
             image=None,
             image_id=None,
