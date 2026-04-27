@@ -108,15 +108,26 @@ itinerary items, these are the names to use:
 - `tripday.day_start_time` ("HH:MM", nullable). On base-camp days (a stay
   in progress, not check-in or check-out day), this is the time the user
   leaves the accommodation in the morning. Default `09:00` when null.
+- `tripitem.time` is now nullable (DB migration `e3a7b58c1f04`).
 
-Per-item `time` is a **target / pin**, not an anchor. The ETA engine computes
-arrival from the chain (anchor → travel → duration → travel...) and only uses
-`time` to display a `+Nm late` / `-Nm early` delta badge.
+Per-item `time` semantics depend on the row's place category:
+
+- **Activities** (`time` required by the form). It's a **target / pin** —
+  arrival is computed from the chain (anchor → travel → duration → travel
+  ...). The pin only drives a `+Nm late` / `-Nm early` delta badge.
+- **Accommodations** (`time` optional). It's a **check-in override**. When
+  null, the UI shows the place's `checkin_time` as the effective check-in.
+  Arrival ETA is always computed from the chain and is what the row
+  surfaces prominently. The free window between arrival and check-in is
+  rendered as `arrives 14:00 · check-in 15:00 · 1h free`, and an inline
+  `+ Add stop` button appears when the window is ≥ 60 minutes so the user
+  can fill the gap with a nearby activity.
 
 Day anchors used by the chain:
 
-- Day 0 with `home` set → home coordinates, `day_start_time` else first item's
-  `time` else `08:00`.
+- Day 0 with `home` set → home coordinates, `day_start_time` else the first
+  non-stay item's `time` else `08:00` (a stay's `time` is a check-in
+  override, never an anchor).
 - Base-camp day → accommodation coordinates, `day_start_time` else `09:00`.
 - Checkout day → the virtual checkout row carries the anchor inline
   (`stay_checkout_time` + accommodation coordinates).

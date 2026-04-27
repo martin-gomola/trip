@@ -61,6 +61,7 @@ export class TripCreateDayItemModalComponent {
   trip?: Trip;
   currencySuggestions: string[] = [];
   defaultCurrency = '';
+  helperBanner?: string;
 
   constructor(
     private ref: DynamicDialogRef,
@@ -115,6 +116,9 @@ export class TripCreateDayItemModalComponent {
       this.members = data.members ?? [];
       this.places = data.places ?? [];
       this.trip = data.trip ?? [];
+      this.helperBanner = data.helperBanner;
+
+      if (data.prefillTime) this.itemForm.get('time')?.setValue(data.prefillTime);
 
       if (data.item) {
         const selectedPlace = typeof data.item.place === 'number' ? data.item.place : (data.item.place?.id ?? null);
@@ -145,6 +149,7 @@ export class TripCreateDayItemModalComponent {
           if (!newPlace) {
             this.itemForm.get('lat')?.setValue('');
             this.itemForm.get('lng')?.setValue('');
+            this.refreshTimeValidators();
             return;
           }
           this.placeUpdatedTrigger(newPlace);
@@ -257,7 +262,10 @@ export class TripCreateDayItemModalComponent {
     if (this.isAccommodationPlace(p)) {
       this.normalizeAccommodationArrivalDay();
       this.itemForm.get('duration_minutes')?.setValue(null);
-      if (!this.itemForm.get('time')?.value) this.itemForm.get('time')?.setValue(p.checkin_time || '15:00');
+      // Stays: leave `time` empty by default — it represents an optional
+      // check-in override, not an arrival pin. The form input shows the
+      // place's check-in time as a ghost placeholder so users can see the
+      // default without it being persisted as an override.
       if (!this.itemForm.get('stay_checkout_time')?.value)
         this.itemForm.get('stay_checkout_time')?.setValue(p.checkout_time || '10:00');
 
@@ -268,6 +276,19 @@ export class TripCreateDayItemModalComponent {
     } else if (pid !== HOME_PLACE_ID && this.itemForm.get('duration_minutes')?.value == null) {
       this.itemForm.get('duration_minutes')?.setValue(p.duration ?? null);
     }
+    this.refreshTimeValidators();
+  }
+
+  private refreshTimeValidators() {
+    const timeControl = this.itemForm.get('time');
+    if (!timeControl) return;
+    const pattern = Validators.pattern(/^([01]\d|2[0-3])(:[0-5]\d)?$/);
+    if (this.isSelectedPlaceAccommodation()) {
+      timeControl.setValidators([pattern]);
+    } else {
+      timeControl.setValidators([Validators.required, pattern]);
+    }
+    timeControl.updateValueAndValidity({ emitEvent: false });
   }
 
   isAccommodationPlace(place?: Place | null): boolean {
@@ -282,6 +303,24 @@ export class TripCreateDayItemModalComponent {
 
   isSelectedPlaceAccommodation(): boolean {
     return this.isAccommodationPlace(this.selectedPlace());
+  }
+
+  /** Default check-in time from the selected place, used as a ghost hint. */
+  selectedPlaceCheckinDefault(): string | null {
+    const place = this.selectedPlace();
+    return place?.checkin_time ?? null;
+  }
+
+  /** True when the user has set a check-in override that differs from the place default. */
+  hasCheckinOverride(): boolean {
+    const value = this.itemForm.get('time')?.value;
+    if (!value) return false;
+    const def = this.selectedPlaceCheckinDefault();
+    return def == null || def !== value;
+  }
+
+  clearTimeOverride() {
+    this.itemForm.get('time')?.setValue('');
   }
 
   selectedArrivalDayId(): number | null {

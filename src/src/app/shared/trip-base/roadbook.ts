@@ -277,8 +277,14 @@ function isAccommodation(item: ViewTripItem): boolean {
 
 function indexSafeTime(item: ViewTripItem): string {
   if (item.isVirtualStay) return '';
-  if (item.isVirtualCheckout) return `odchod ${item.time}`;
-  if (isAccommodation(item)) return `check-in ${item.time}`;
+  if (item.isVirtualCheckout) return item.time ? `odchod ${item.time}` : '';
+  if (isAccommodation(item)) {
+    const checkin = item.effectiveCheckinTime ?? item.time ?? item.place?.checkin_time;
+    if (item.eta && checkin) return `príchod ${item.eta} · check-in ${checkin}`;
+    if (item.eta) return `príchod ${item.eta}`;
+    if (checkin) return `check-in ${checkin}`;
+    return '';
+  }
   return item.time ? `čas ${item.time}` : '';
 }
 

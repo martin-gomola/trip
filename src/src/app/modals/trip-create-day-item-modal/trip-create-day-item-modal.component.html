@@ -1,4 +1,11 @@
 <section class="mx-auto max-w-5xl space-y-6" [formGroup]="itemForm">
+  @if (helperBanner) {
+    <div
+      class="rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-xs text-primary-800 dark:border-primary-700 dark:bg-primary-950/40 dark:text-primary-100">
+      <i class="pi pi-info-circle mr-1.5"></i>
+      <span>{{ helperBanner }}</span>
+    </div>
+  }
   <div class="space-y-4">
     <h2 class="text-sm font-semibold text-primary-900 dark:text-primary-50">Mandatory Information</h2>
 
@@ -45,11 +52,31 @@
         }
       </div>
 
-      <div class="md:col-span-2">
+      <div class="relative md:col-span-2">
         <p-floatlabel variant="in">
           <input id="time" type="time" formControlName="time" pInputText fluid />
-          <label for="time">Time</label>
+          <label for="time">
+            @if (isSelectedPlaceAccommodation()) {
+              Check-in (override)
+            } @else {
+              Time
+            }
+          </label>
         </p-floatlabel>
+        @if (isSelectedPlaceAccommodation() && selectedPlaceCheckinDefault() && !hasCheckinOverride()) {
+          <p class="mt-1 text-[11px] text-primary-500 dark:text-primary-400">
+            Place default: {{ selectedPlaceCheckinDefault() }} — leave blank to use it.
+          </p>
+        }
+        @if (isSelectedPlaceAccommodation() && hasCheckinOverride()) {
+          <button
+            type="button"
+            class="absolute right-1 top-1/2 -translate-y-1/2 text-xs text-primary-500 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-100"
+            pTooltip="Clear override (use place default)"
+            (click)="clearTimeOverride()">
+            <i class="pi pi-times-circle"></i>
+          </button>
+        }
       </div>
 
       <div class="relative md:col-span-7">
@@ -197,7 +224,7 @@
 
               <div
                 class="flex min-h-14 items-center rounded-md border border-primary-200 bg-white px-3 text-xs text-primary-600 dark:border-primary-700 dark:bg-primary-900 dark:text-primary-300">
-                One itinerary item represents the whole stay. Do not add the same accommodation again on middle days.
+                One itinerary item represents the whole stay.
               </div>
             </div>
           } @else {

@@ -762,7 +762,12 @@ class TripItemAttachmentLink(SQLModel, table=True):
 
 
 class TripItemBase(SQLModel):
-    time: TimeString
+    # `time` is optional: for stays it represents an optional check-in
+    # override (default = the place's checkin_time), and for activities it
+    # is the user's target arrival pin. Activity rows still require it via
+    # the frontend form validator; the backend stays permissive so stays
+    # can persist `null` and so existing rows remain compatible.
+    time: TimeString | None = None
     text: str
     comment: str | None = None
     lat: float | None = None
@@ -776,7 +781,9 @@ class TripItemBase(SQLModel):
     duration_minutes: int | None = None
 
     @field_validator("time", mode="before")
-    def pad_mm_if_needed(cls, value: str) -> str:
+    def pad_mm_if_needed(cls, value: str | None) -> str | None:
+        if value is None or value == "":
+            return None
         if re.fullmatch(r"^([01]\d|2[0-3])$", value):  # If it's just HH
             return f"{value}:00"
         return value

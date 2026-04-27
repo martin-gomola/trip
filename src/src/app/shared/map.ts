@@ -77,7 +77,7 @@ export function tripDayMarker(item: Partial<TripItem>): L.Marker {
   const touchDevice = 'ontouchstart' in window;
   if (!touchDevice) {
     marker.bindTooltip(
-      `<div class="flex flex-col gap-1 items-center"><div class="w-fit px-2.5 py-1 text-xs font-mono font-medium bg-primary-100 dark:bg-primary-800 text-primary-700 dark:text-primary-300 rounded">${item.time}</div><div class="font-semibold mb-1 text-base">${item.text}</div></div>`,
+      `<div class="flex flex-col gap-1 items-center"><div class="w-fit px-2.5 py-1 text-xs font-mono font-medium bg-primary-100 dark:bg-primary-800 text-primary-700 dark:text-primary-300 rounded">${item.time ?? '—'}</div><div class="font-semibold mb-1 text-base">${item.text}</div></div>`,
       {
         direction: 'right',
         offset: [10, 0],

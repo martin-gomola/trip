@@ -455,8 +455,11 @@
                             </span>
                           } @else {
                             <span
-                              class="px-2.5 py-1 text-xs sm:text-sm font-mono font-medium bg-primary-100 dark:bg-primary-800 text-primary-700 dark:text-primary-300 rounded whitespace-nowrap">
-                              {{ item.time }}
+                              class="px-2.5 py-1 text-xs sm:text-sm font-mono font-medium bg-primary-100 dark:bg-primary-800 text-primary-700 dark:text-primary-300 rounded whitespace-nowrap"
+                              [pTooltip]="
+                                primaryTimeKind(item) === 'eta' ? 'Arrival ETA · check-in shown below' : null
+                              ">
+                              {{ primaryTimeLabel(item) }}
                             </span>
                           }
                         </div>
@@ -530,35 +533,65 @@
                           ) {
                             <p class="mt-1 flex items-center gap-1.5 text-xs text-primary-500 dark:text-primary-400">
                               <i class="pi pi-clock text-[10px]"></i>
-                              @if (item.eta) {
-                                <span>ETA {{ item.eta }}</span>
-                              }
-                              @if (item.travelDuration) {
-                                <span class="text-primary-300 dark:text-primary-700">•</span>
-                                <span>{{ item.travelDuration }} travel</span>
-                              }
                               @if (
-                                item.checkinTime &&
                                 isAccommodationPlace(item.place) &&
                                 !item.isVirtualCheckout &&
                                 !item.isVirtualStay
                               ) {
-                                <span class="text-primary-300 dark:text-primary-700">•</span>
-                                <span
-                                  >{{ item.checkinTime === item.time ? 'Check-in' : 'Check-in from' }}
-                                  {{ item.checkinTime }}</span
-                                >
-                              }
-                              @if (item.earlyArrivalMinutes) {
-                                <span class="text-amber-600 dark:text-amber-300"
-                                  >• Arrives {{ formatDurationMinutes(item.earlyArrivalMinutes) }} early</span
-                                >
-                              }
-                              @if (etaDeltaBadge(item); as delta) {
-                                <span class="text-primary-300 dark:text-primary-700">•</span>
-                                <span [class]="delta.cssClass">{{ delta.label }}</span>
+                                <!--
+                                  Stay narration (Wording A):
+                                    arrives 14:00 · check-in 15:00 · 1h free
+                                  Arrival ETA is also the prominent label on the
+                                  row pill, so we de-duplicate when missing.
+                                -->
+                                @if (item.eta) {
+                                  <span>arrives {{ item.eta }}</span>
+                                }
+                                @if (item.effectiveCheckinTime) {
+                                  @if (item.eta) {
+                                    <span class="text-primary-300 dark:text-primary-700">•</span>
+                                  }
+                                  <span>check-in {{ item.effectiveCheckinTime }}</span>
+                                }
+                                @if (item.freeWindowMinutes && item.freeWindowMinutes > 0) {
+                                  <span class="text-primary-300 dark:text-primary-700">•</span>
+                                  <span>{{ formatFreeWindow(item.freeWindowMinutes) }}</span>
+                                }
+                                @if (item.travelDuration) {
+                                  <span class="text-primary-300 dark:text-primary-700">•</span>
+                                  <span>{{ item.travelDuration }} travel</span>
+                                }
+                              } @else {
+                                @if (item.eta) {
+                                  <span>ETA {{ item.eta }}</span>
+                                }
+                                @if (item.travelDuration) {
+                                  <span class="text-primary-300 dark:text-primary-700">•</span>
+                                  <span>{{ item.travelDuration }} travel</span>
+                                }
+                                @if (etaDeltaBadge(item); as delta) {
+                                  <span class="text-primary-300 dark:text-primary-700">•</span>
+                                  <span [class]="delta.cssClass">{{ delta.label }}</span>
+                                }
                               }
                             </p>
+                            @if (
+                              isAccommodationPlace(item.place) &&
+                              !item.isVirtualCheckout &&
+                              !item.isVirtualStay &&
+                              item.freeWindowMinutes &&
+                              item.freeWindowMinutes >= ADD_STOP_THRESHOLD_MIN &&
+                              !trip()?.archived
+                            ) {
+                              <button
+                                type="button"
+                                class="mt-1 inline-flex items-center gap-1 text-xs text-primary-600 dark:text-primary-300 hover:text-primary-800 dark:hover:text-primary-100 hover:underline focus:outline-none focus:ring-1 focus:ring-primary-400 rounded"
+                                pTooltip="Add an activity to fill the gap before check-in"
+                                (click)="addStopInFreeWindow(item); $event.stopPropagation()">
+                                <i class="pi pi-plus-circle text-[10px]"></i>
+                                <span>Add stop ({{ formatFreeWindow(item.freeWindowMinutes) }})</span>
+                              </button>
+                            }
                           }
 
                           @if (item.comment && visibleProps.has('comment')) {

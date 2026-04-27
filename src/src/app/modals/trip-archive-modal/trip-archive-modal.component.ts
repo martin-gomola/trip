@@ -33,7 +33,7 @@ export class TripArchiveModalComponent {
     trip.days.forEach((day, index) => {
       placeholder += `\nDay ${index + 1} (${day.label})\n`;
       if (!day.items.length) placeholder += '  No activities.\n';
-      else day.items.forEach((item) => (placeholder += `  - ${item.time} | ${item.text}\n`));
+      else day.items.forEach((item) => (placeholder += `  - ${item.time ?? '—'} | ${item.text}\n`));
     });
     placeholder += '\nAnything else?';
     this.review.setValue(placeholder);

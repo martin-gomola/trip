@@ -58,7 +58,11 @@ export interface TripDay {
 
 export interface TripItem {
   id: number;
-  time: string;
+  /**
+   * Activities: target arrival pin (HH:MM, required at form level).
+   * Stays: optional check-in override (null = use place.checkin_time).
+   */
+  time: string | null;
   text: string;
   comment?: string;
   place?: Place;
@@ -171,6 +175,19 @@ export interface ViewTripItem extends TripItem {
    * undefined when no ETA was computed or no `time` is pinned.
    */
   etaDeltaMinutes?: number;
+  /**
+   * For accommodation arrivals: free-window minutes between physical
+   * arrival and effective check-in (effective = item.time override
+   * else place.checkin_time). Positive = arrived early, room not yet
+   * ready. Negative = arrived after check-in. undefined when ETA or
+   * effective check-in cannot be determined.
+   */
+  freeWindowMinutes?: number;
+  /**
+   * Effective check-in time string (HH:MM) used by the stay row to
+   * narrate the appointment, distinct from the computed arrival ETA.
+   */
+  effectiveCheckinTime?: string;
 }
 
 export interface DayViewModel {

@@ -373,8 +373,29 @@ export class TripComponent implements AfterViewInit, OnDestroy {
           if (item.place && !item.isVirtualStay && !item.isVirtualCheckout) hasPlaces = true;
 
           const pinned = this.parseTimeMinutes(item.time);
+          const isStayArrival = this.isAccommodationStay(item) && !item.isVirtualStay && !item.isVirtualCheckout;
+
+          // For stays, `item.time` is interpreted as a check-in override
+          // (not an arrival pin), so we don't compute an ETA delta against it.
           const etaDeltaMinutes =
-            arrivalMinutes != null && pinned != null ? arrivalMinutes - pinned : undefined;
+            !isStayArrival && arrivalMinutes != null && pinned != null
+              ? arrivalMinutes - pinned
+              : undefined;
+
+          // For accommodation arrivals: derive effective check-in time
+          // (override if user set it, else the place's default check-in)
+          // and the free window between arrival and check-in.
+          let effectiveCheckinTime: string | undefined;
+          let freeWindowMinutes: number | undefined;
+          if (isStayArrival) {
+            const overrideMinutes = pinned;
+            const placeCheckin = this.parseTimeMinutes(item.place?.checkin_time || '');
+            const checkinMinutes = overrideMinutes ?? placeCheckin;
+            if (checkinMinutes != null) {
+              effectiveCheckinTime = this.formatTimeMinutes(checkinMinutes);
+              if (arrivalMinutes != null) freeWindowMinutes = checkinMinutes - arrivalMinutes;
+            }
+          }
 
           // Advance the chain. The user-pinned `time` is treated as a target,
           // not an anchor — so we trust the computed arrival and only fall back
@@ -421,6 +442,8 @@ export class TripComponent implements AfterViewInit, OnDestroy {
             isHome: this.isHomeItem(item),
             checkinTime: item.place?.checkin_time,
             checkoutTime: item.stay_checkout_time ?? item.place?.checkout_time,
+            effectiveCheckinTime,
+            freeWindowMinutes,
             earlyArrivalMinutes: this.earlyArrivalMinutes(item, eta),
           };
         });
@@ -632,7 +655,10 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     const explicitStart = day.day_start_time ? this.parseTimeMinutes(day.day_start_time) : null;
 
     if (dayIndex === 0 && home) {
-      const firstPinned = this.parseTimeMinutes(day.items[0]?.time ?? '');
+      // Find the first non-stay pinned time. A stay's `time` is a check-in
+      // override, not a departure-from-home anchor, so we ignore it here.
+      const firstNonStay = day.items.find((candidate) => !this.isAccommodationStay(candidate));
+      const firstPinned = this.parseTimeMinutes(firstNonStay?.time ?? '');
       const startMinutes = explicitStart ?? firstPinned ?? this.parseTimeMinutes('08:00');
       if (startMinutes == null) return null;
       return { lat: home.lat, lng: home.lng, departureMinutes: startMinutes };
@@ -666,6 +692,9 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     if (item.etaDeltaMinutes == null) return null;
     if (Math.abs(item.etaDeltaMinutes) < ETA_DELTA_BADGE_THRESHOLD_MIN) return null;
     if (item.isVirtualStay || item.isVirtualCheckout || item.isHome) return null;
+    // Stays don't show a late/early badge — `time` is a check-in override,
+    // not an arrival pin, so the comparison would be misleading.
+    if (this.isAccommodationStay(item)) return null;
 
     const minutes = Math.abs(item.etaDeltaMinutes);
     const formatted = this.formatDurationMinutes(minutes);
@@ -675,11 +704,51 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     return { label: `${formatted} early`, cssClass: 'text-primary-400 dark:text-primary-500' };
   }
 
+  /**
+   * For accommodation arrivals, the prominent time on the row is the
+   * computed arrival ETA — that's what matters when planning a free-time
+   * stop before check-in. Falls back to the effective check-in time, then
+   * to the raw item.time, then to em-dash.
+   */
+  primaryTimeLabel(item: ViewTripItem): string {
+    if (this.isAccommodationStay(item) && !item.isVirtualStay && !item.isVirtualCheckout) {
+      return item.eta || item.effectiveCheckinTime || item.time || '—';
+    }
+    return item.time || '—';
+  }
+
+  primaryTimeKind(item: ViewTripItem): 'eta' | 'checkin' | 'time' {
+    if (this.isAccommodationStay(item) && !item.isVirtualStay && !item.isVirtualCheckout) {
+      if (item.eta) return 'eta';
+      if (item.effectiveCheckinTime) return 'checkin';
+    }
+    return 'time';
+  }
+
+  /**
+   * Free-window helper used by the stay row narration:
+   * positive minutes = arrived before check-in (planning opportunity),
+   * negative = arrived after check-in (no free window),
+   * zero = arrives exactly at check-in.
+   */
+  formatFreeWindow(minutes: number): string {
+    if (minutes <= 0) return '';
+    return `${this.formatDurationMinutes(minutes)} free`;
+  }
+
+  /** Threshold (minutes) at which we surface a + Add stop prompt. */
+  readonly ADD_STOP_THRESHOLD_MIN = 60;
+
   earlyArrivalMinutes(item: ViewTripItem, eta?: string): number | undefined {
     if (!eta || item.isVirtualStay || item.isVirtualCheckout || !this.isAccommodationPlace(item.place))
       return undefined;
 
-    const checkin = this.parseTimeMinutes(item.place?.checkin_time || '');
+    // Effective check-in is the per-item override if set, otherwise the
+    // place's default. The override lets a user record a confirmed early
+    // check-in (e.g. 14:00 instead of the hotel's listed 15:00).
+    const overrideMinutes = this.parseTimeMinutes(item.time);
+    const placeCheckin = this.parseTimeMinutes(item.place?.checkin_time || '');
+    const checkin = overrideMinutes ?? placeCheckin;
     const arrival = this.parseTimeMinutes(eta);
     if (checkin == null || arrival == null || arrival >= checkin) return undefined;
     return checkin - arrival;
@@ -1810,7 +1879,11 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  addItem(dayId?: number, placeId?: number) {
+  addItem(
+    dayId?: number,
+    placeId?: number,
+    options?: { prefillTime?: string; helperBanner?: string },
+  ) {
     const modal = this.dialogService.open(TripCreateDayItemModalComponent, {
       header: 'Add Item',
       modal: true,
@@ -1829,6 +1902,8 @@ export class TripComponent implements AfterViewInit, OnDestroy {
         selectedHome: placeId === HOME_PLACE_ID,
         places: this.itemPlaceOptions(),
         members: this.tripMembers(),
+        prefillTime: options?.prefillTime,
+        helperBanner: options?.helperBanner,
       },
     })!;
 
@@ -1875,6 +1950,22 @@ export class TripComponent implements AfterViewInit, OnDestroy {
       return;
     }
     this.addItem(dayId, HOME_PLACE_ID);
+  }
+
+  /**
+   * Suggestive entry point invoked from a stay row when there is a non-trivial
+   * free window between the computed arrival ETA and effective check-in.
+   * Opens the item modal pre-filled with the day, the ETA as the target time,
+   * and a helper banner that explains the context.
+   */
+  addStopInFreeWindow(item: ViewTripItem) {
+    if (!item.day_id || !item.eta || !item.freeWindowMinutes || item.freeWindowMinutes <= 0) return;
+    const checkin = item.effectiveCheckinTime;
+    const window = this.formatDurationMinutes(item.freeWindowMinutes);
+    const banner = checkin
+      ? `Arriving at ${item.eta}, check-in ${checkin} — about ${window} free before the room is ready.`
+      : `Arriving at ${item.eta} — about ${window} free before check-in.`;
+    this.addItem(item.day_id, undefined, { prefillTime: item.eta, helperBanner: banner });
   }
 
   editItem(item: TripItem) {
@@ -3417,7 +3508,7 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     return `${from.lat.toFixed(6)},${from.lng.toFixed(6)}>${to.lat.toFixed(6)},${to.lng.toFixed(6)}`;
   }
 
-  parseTimeMinutes(value?: string): number | null {
+  parseTimeMinutes(value?: string | null): number | null {
     if (!value) return null;
     const match = value.match(/^([01]\d|2[0-3])(?::([0-5]\d))?$/);
     if (!match) return null;
