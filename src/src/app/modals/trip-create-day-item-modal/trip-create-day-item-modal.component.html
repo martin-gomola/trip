@@ -47,8 +47,8 @@
 
       <div class="md:col-span-2">
         <p-floatlabel variant="in">
-          <p-inputmask id="time" formControlName="time" mask="99?:99" fluid />
-          <label for="time">{{ isSelectedPlaceAccommodation() ? 'Check-in time' : 'Time' }}</label>
+          <input id="time" type="time" formControlName="time" pInputText fluid />
+          <label for="time">Time</label>
         </p-floatlabel>
       </div>
 
@@ -208,17 +208,7 @@
         </fieldset>
       }
 
-      <p-floatlabel variant="in" class="md:col-span-2">
-        <input id="lat" formControlName="lat" pInputText fluid />
-        <label for="lat">Latitude</label>
-      </p-floatlabel>
-
-      <p-floatlabel variant="in" class="md:col-span-2">
-        <input id="lng" formControlName="lng" pInputText fluid />
-        <label for="lng">Longitude</label>
-      </p-floatlabel>
-
-      <p-inputgroup class="h-full md:col-span-1">
+      <p-inputgroup class="h-full md:col-span-2">
         <p-floatlabel variant="in">
           <p-inputnumber
             id="price"
@@ -242,25 +232,42 @@
         }
       </p-inputgroup>
 
-      <p-floatlabel variant="in">
-        <input id="price_currency" formControlName="price_currency" placeholder="€" pInputText fluid />
+      <p-floatlabel variant="in" class="md:col-span-1">
+        <p-autocomplete
+          inputId="price_currency"
+          formControlName="price_currency"
+          [suggestions]="currencySuggestions"
+          (completeMethod)="searchCurrency($event)"
+          [dropdown]="true"
+          [forceSelection]="false"
+          [showEmptyMessage]="false"
+          placeholder="EUR"
+          fluid />
         <label for="price_currency">Currency</label>
       </p-floatlabel>
 
       @if (!isSelectedPlaceAccommodation()) {
         <p-floatlabel variant="in" class="md:col-span-2">
-          <p-inputnumber
+          <input
             id="duration_minutes"
-            formControlName="duration_minutes"
-            [min]="0"
-            [max]="1440"
-            [step]="15"
-            suffix=" min"
-            placeholder="0"
+            type="time"
+            [value]="durationAsTime()"
+            (change)="onDurationTimeChange($event)"
+            pInputText
             fluid />
           <label for="duration_minutes">Stop duration</label>
         </p-floatlabel>
       }
+
+      <p-floatlabel variant="in" class="md:col-span-2">
+        <input id="lat" formControlName="lat" pInputText fluid />
+        <label for="lat">Latitude</label>
+      </p-floatlabel>
+
+      <p-floatlabel variant="in" class="md:col-span-2">
+        <input id="lng" formControlName="lng" pInputText fluid />
+        <label for="lng">Longitude</label>
+      </p-floatlabel>
     </div>
 
     <div class="grid md:grid-cols-[auto_1fr] gap-4">

@@ -1,5 +1,6 @@
 import { Component, HostListener, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AutoCompleteCompleteEvent, AutoCompleteModule } from 'primeng/autocomplete';
 import { ButtonModule } from 'primeng/button';
 import { DynamicDialogConfig, DynamicDialogRef } from 'primeng/dynamicdialog';
 import { FloatLabelModule } from 'primeng/floatlabel';
@@ -8,8 +9,8 @@ import { Trip, TripAttachment, TripDay, TripMember, TripStatus } from '../../typ
 import { Place } from '../../types/poi';
 import { SelectModule } from 'primeng/select';
 import { TextareaModule } from 'primeng/textarea';
-import { InputMaskModule } from 'primeng/inputmask';
 import { UtilsService } from '../../services/utils.service';
+import { suggestCurrencies } from '../../shared/currencies';
 import { checkAndParseLatLng, formatLatLng } from '../../shared/latlng-parser';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { InputNumberModule } from 'primeng/inputnumber';
@@ -25,6 +26,7 @@ const HOME_PLACE_ID = -1;
 @Component({
   selector: 'app-trip-create-day-item-modal',
   imports: [
+    AutoCompleteModule,
     FloatLabelModule,
     InputTextModule,
     InputNumberModule,
@@ -32,11 +34,6 @@ const HOME_PLACE_ID = -1;
     SelectModule,
     ReactiveFormsModule,
     TextareaModule,
-    FloatLabelModule,
-    InputTextModule,
-    ButtonModule,
-    ReactiveFormsModule,
-    InputMaskModule,
     MultiSelectModule,
     InputGroupModule,
     InputGroupAddonModule,
@@ -62,6 +59,8 @@ export class TripCreateDayItemModalComponent {
   previous_image_id: number | null = null;
   previous_image: string | null = null;
   trip?: Trip;
+  currencySuggestions: string[] = [];
+  defaultCurrency = '';
 
   constructor(
     private ref: DynamicDialogRef,
@@ -203,6 +202,14 @@ export class TripCreateDayItemModalComponent {
           lngControl?.updateValueAndValidity();
         },
       });
+
+    this.utilsService.currency$.pipe(takeUntilDestroyed()).subscribe({
+      next: (currency) => (this.defaultCurrency = currency ?? ''),
+    });
+  }
+
+  searchCurrency(event: AutoCompleteCompleteEvent) {
+    this.currencySuggestions = suggestCurrencies(event.query ?? '', this.trip?.currency || this.defaultCurrency);
   }
 
   closeDialog() {
@@ -332,6 +339,28 @@ export class TripCreateDayItemModalComponent {
     const value = Number(this.itemForm.get('stay_nights')?.value || 1);
     const nights = Number.isFinite(value) ? Math.max(1, Math.floor(value)) : 1;
     return Math.min(nights, this.maxStayNights());
+  }
+
+  durationAsTime(): string {
+    const minutes = this.itemForm.get('duration_minutes')?.value;
+    if (minutes == null || minutes === '' || !Number.isFinite(Number(minutes))) return '';
+    const total = Math.max(0, Math.min(Number(minutes), 23 * 60 + 59));
+    const hh = Math.floor(total / 60).toString().padStart(2, '0');
+    const mm = (total % 60).toString().padStart(2, '0');
+    return `${hh}:${mm}`;
+  }
+
+  onDurationTimeChange(event: Event) {
+    const value = (event.target as HTMLInputElement).value;
+    const control = this.itemForm.get('duration_minutes');
+    if (!value) {
+      control?.setValue(null);
+    } else {
+      const [h, m] = value.split(':').map(Number);
+      control?.setValue(h * 60 + m);
+    }
+    control?.markAsDirty();
+    this.itemForm.markAsDirty();
   }
 
   syncCheckoutDayFromNights() {
