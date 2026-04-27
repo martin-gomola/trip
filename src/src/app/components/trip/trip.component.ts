@@ -1158,18 +1158,6 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     const markersToAdd: L.Marker[] = [];
     const homePlace = this.tripHomePlaceOption();
 
-    const itemsByPlaceId = new Map<number, ViewTripItem[]>();
-    viewModels.forEach((vm) => {
-      vm.items.forEach((item) => {
-        if (item.place?.id) {
-          if (!itemsByPlaceId.has(item.place.id)) {
-            itemsByPlaceId.set(item.place.id, []);
-          }
-          itemsByPlaceId.get(item.place.id)!.push(item);
-        }
-      });
-    });
-
     allPlaces.forEach((place) => {
       const isUsed = usedIds.has(place.id);
       const marker = placeToMarker(place, false, !isUsed, false, () => this.markerRightClickFn(place));
@@ -1178,12 +1166,12 @@ export class TripComponent implements AfterViewInit, OnDestroy {
         if (el && e.target.isHighlightedPlace) el.classList.add('active-trip-place');
       });
 
-      const itemsUsingPlace = itemsByPlaceId.get(place.id) || [];
       marker.on('click', () => {
         this.selectedPlace.set(place);
         this.selectedItem.set(null);
         this.selectedDay.set(null);
-        this.selectedPlaceActiveTabIndex.set(itemsUsingPlace.length > 0 ? itemsUsingPlace.length : 0);
+        const liveItemCount = this.selectedPlaceItems().length;
+        this.selectedPlaceActiveTabIndex.set(liveItemCount);
       });
 
       this.markers.set(place.id, marker);
