@@ -1,6 +1,15 @@
 {
   "$schema": "./node_modules/@angular/service-worker/config/schema.json",
   "index": "/index.html",
+  "navigationUrls": [
+    "/**",
+    "!/**/*.*",
+    "!/**/*__*",
+    "!/**/*__*/**",
+    "!/api/**",
+    "!/docs/**",
+    "!/openapi.json"
+  ],
   "assetGroups": [
     {
       "name": "app",
@@ -22,6 +31,43 @@
         "files": [
           "/**/*.(svg|cur|jpg|jpeg|png|apng|webp|avif|gif|otf|ttf|woff|woff2)"
         ]
+      }
+    }
+  ],
+  "dataGroups": [
+    {
+      "name": "api-reads",
+      "urls": [
+        "/api/**"
+      ],
+      "cacheConfig": {
+        "strategy": "freshness",
+        "maxSize": 200,
+        "maxAge": "7d",
+        "timeout": "5s"
+      }
+    },
+    {
+      "name": "map-tiles-carto",
+      "urls": [
+        "https://*.basemaps.cartocdn.com/**"
+      ],
+      "cacheConfig": {
+        "strategy": "performance",
+        "maxSize": 2000,
+        "maxAge": "30d"
+      }
+    },
+    {
+      "name": "map-tiles-osm",
+      "urls": [
+        "https://*.tile.openstreetmap.org/**",
+        "https://*.tile.opentopomap.org/**"
+      ],
+      "cacheConfig": {
+        "strategy": "performance",
+        "maxSize": 2000,
+        "maxAge": "30d"
       }
     }
   ]
