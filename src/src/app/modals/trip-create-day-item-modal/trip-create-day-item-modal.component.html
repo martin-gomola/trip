@@ -287,10 +287,25 @@
       }
 
       @if (hasFreeFormCoordinates()) {
-        <p-floatlabel variant="in" class="md:col-span-2">
-          <input id="lat" formControlName="lat" pInputText fluid />
-          <label for="lat">Latitude</label>
-        </p-floatlabel>
+        <div class="md:col-span-2">
+          <p-floatlabel variant="in">
+            <input id="lat" formControlName="lat" pInputText fluid placeholder="48.8802, 19.1054 or Maps link" />
+            <label for="lat">Latitude / Maps link</label>
+          </p-floatlabel>
+          @if (resolvingGeoLink) {
+            <p class="mt-1 text-[11px] text-primary-500 dark:text-primary-400">
+              <i class="pi pi-spinner pi-spin mr-1"></i>Resolving link…
+            </p>
+          } @else if (geoLinkError) {
+            <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">
+              <i class="pi pi-exclamation-circle mr-1"></i>{{ geoLinkError }}
+            </p>
+          } @else {
+            <p class="mt-1 text-[11px] text-primary-500 dark:text-primary-400">
+              Paste lat/lng, a Plus Code, or a Google Maps share link.
+            </p>
+          }
+        </div>
 
         <p-floatlabel variant="in" class="md:col-span-2">
           <input id="lng" formControlName="lng" pInputText fluid />

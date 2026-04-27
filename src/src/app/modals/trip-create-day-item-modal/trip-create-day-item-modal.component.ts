@@ -11,7 +11,7 @@ import { SelectModule } from 'primeng/select';
 import { TextareaModule } from 'primeng/textarea';
 import { UtilsService } from '../../services/utils.service';
 import { suggestCurrencies } from '../../shared/currencies';
-import { checkAndParseLatLng, formatLatLng } from '../../shared/latlng-parser';
+import { checkAndParseLatLng, formatLatLng, isGoogleMapsShortLink, looksLikeUrl } from '../../shared/latlng-parser';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { MultiSelectModule } from 'primeng/multiselect';
@@ -62,6 +62,8 @@ export class TripCreateDayItemModalComponent {
   currencySuggestions: string[] = [];
   defaultCurrency = '';
   helperBanner?: string;
+  resolvingGeoLink = false;
+  geoLinkError: string | null = null;
 
   constructor(
     private ref: DynamicDialogRef,
@@ -193,18 +195,24 @@ export class TripCreateDayItemModalComponent {
       ?.valueChanges.pipe(takeUntilDestroyed())
       .subscribe({
         next: (value: string) => {
+          if (typeof value !== 'string' || !value.trim()) {
+            this.geoLinkError = null;
+            return;
+          }
+
           const result = checkAndParseLatLng(value);
-          if (!result) return;
+          if (result) {
+            this.geoLinkError = null;
+            this.applyResolvedLatLng(result[0], result[1]);
+            return;
+          }
 
-          const [lat, lng] = result;
-          const latControl = this.itemForm.get('lat');
-          const lngControl = this.itemForm.get('lng');
-
-          latControl?.setValue(formatLatLng(lat).trim(), { emitEvent: false });
-          lngControl?.setValue(formatLatLng(lng).trim(), { emitEvent: false });
-
-          lngControl?.markAsDirty();
-          lngControl?.updateValueAndValidity();
+          // Short Google Maps share link (maps.app.goo.gl/xxxx) — needs the
+          // backend resolver because the redirect can't be followed from
+          // the browser cross-origin.
+          if (looksLikeUrl(value) && isGoogleMapsShortLink(value)) {
+            this.resolveGoogleMapsShortLink(value.trim());
+          }
         },
       });
 
@@ -309,6 +317,36 @@ export class TripCreateDayItemModalComponent {
   hasFreeFormCoordinates(): boolean {
     const placeId = this.itemForm.get('place')?.value;
     return !placeId || placeId === HOME_PLACE_ID;
+  }
+
+  /** Push parsed/resolved coordinates back into the form fields. */
+  private applyResolvedLatLng(lat: number, lng: number) {
+    const latControl = this.itemForm.get('lat');
+    const lngControl = this.itemForm.get('lng');
+    latControl?.setValue(formatLatLng(lat).trim(), { emitEvent: false });
+    lngControl?.setValue(formatLatLng(lng).trim(), { emitEvent: false });
+    lngControl?.markAsDirty();
+    lngControl?.updateValueAndValidity();
+  }
+
+  /** Ask the backend to resolve a Google Maps short share link. */
+  private resolveGoogleMapsShortLink(url: string) {
+    if (this.resolvingGeoLink) return;
+    this.resolvingGeoLink = true;
+    this.geoLinkError = null;
+    this.apiService
+      .resolveGeoLink(url)
+      .pipe(take(1))
+      .subscribe({
+        next: ({ lat, lng }) => {
+          this.applyResolvedLatLng(lat, lng);
+          this.resolvingGeoLink = false;
+        },
+        error: () => {
+          this.geoLinkError = 'Could not extract coordinates from this link';
+          this.resolvingGeoLink = false;
+        },
+      });
   }
 
   /** Short, read-only label for the place's coordinates (shown when a place is selected). */

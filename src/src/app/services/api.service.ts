@@ -146,6 +146,12 @@ export class ApiService {
     );
   }
 
+  resolveGeoLink(url: string): Observable<{ lat: number; lng: number; source: string }> {
+    return this.httpClient.post<{ lat: number; lng: number; source: string }>(`${this.apiBaseUrl}/geo/resolve-link`, {
+      url,
+    });
+  }
+
   postTrip(trip: TripBase): Observable<TripBase> {
     return this.httpClient.post<TripBase>(`${this.apiBaseUrl}/trips`, trip);
   }
