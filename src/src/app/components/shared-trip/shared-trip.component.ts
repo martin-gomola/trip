@@ -1364,7 +1364,7 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
   tripDayToNavigation(dayId: number) {
     const idx = this.trip()?.days.findIndex((d) => d.id === dayId);
     if (!this.trip() || idx === undefined || idx == -1) return;
-    const data = this.trip()!.days[idx].items.sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
+    const data = this.trip()!.days[idx].items.sort((a, b) => (a.time ?? '').localeCompare(b.time ?? ''));
     const items = data.filter((item) => item.lat && item.lng);
     if (!items.length) return;
     openNavigation(items.map((item) => ({ lat: item.lat!, lng: item.lng! })));

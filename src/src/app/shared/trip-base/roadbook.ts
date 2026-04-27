@@ -165,7 +165,7 @@ function itemToRoadbookRow(
     title: itemTitle(item, index, itemCount, cap),
     details,
     mapsUrl: itemMapsUrl(item, mapProvider),
-    time: item.time,
+    time: item.time ?? undefined,
     warning: symbol.includes('!') || symbol === 'OFF',
   };
 }

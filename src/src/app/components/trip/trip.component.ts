@@ -3229,7 +3229,7 @@ export class TripComponent implements AfterViewInit, OnDestroy {
 
       changes.push({
         item: this.normalizeItem(current),
-        oldTime: current.time,
+        oldTime: current.time ?? '',
         newTime,
         travelDuration: this.formatDurationMinutes(travelMinutes),
         distance: estimate?.distance ? Math.round((estimate.distance / 1000) * 10) / 10 : undefined,
