@@ -1285,13 +1285,13 @@ export class TripComponent implements AfterViewInit, OnDestroy {
             command: () => this.itemToNavigation(),
           },
           {
-            label: 'Edit',
+            label: 'Edit plan item',
             icon: 'pi pi-pencil',
             disabled: this.trip()!.archived,
             command: () => this.editItem(item),
           },
           {
-            label: 'Delete',
+            label: 'Delete plan item',
             icon: 'pi pi-trash',
             disabled: this.trip()!.archived,
             command: () => this.deleteItem(item),
@@ -1308,19 +1308,19 @@ export class TripComponent implements AfterViewInit, OnDestroy {
         label: 'Actions',
         items: [
           {
-            label: 'Create Plan',
+            label: 'Create plan from this place',
             icon: 'pi pi-link',
             disabled: this.trip()!.archived,
             command: () => this.addItem(undefined, place.id),
           },
           {
-            label: 'Edit',
+            label: 'Edit place (template)',
             icon: 'pi pi-pencil',
             disabled: this.trip()!.archived,
             command: () => this.editPlace(place),
           },
           {
-            label: 'Unlink Place',
+            label: 'Remove place from trip',
             icon: 'pi pi-trash',
             disabled: this.trip()!.archived,
             command: () => this.unlinkPlaceFromTrip(place.id),

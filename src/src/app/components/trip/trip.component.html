@@ -945,14 +945,14 @@
                   icon="pi pi-pencil"
                   text
                   [disabled]="trip()?.archived"
-                  pTooltip="Edit Plan"
+                  pTooltip="Edit Place (template)"
                   (click)="editPlace(selection.place)" />
                 <p-button
                   icon="pi pi-trash"
                   text
                   severity="danger"
                   [disabled]="trip()?.archived"
-                  pTooltip="Delete Plan"
+                  pTooltip="Remove Place from trip"
                   (click)="unlinkPlaceFromTrip(selection.place.id)" />
                 <p-button
                   (click)="selectedPlace.set(null); selectedPlaceActiveTabIndex.set(0)"
@@ -1005,14 +1005,14 @@
                   icon="pi pi-pencil"
                   text
                   [disabled]="trip()?.archived"
-                  pTooltip="Edit Plan"
+                  pTooltip="Edit this plan item"
                   (click)="editItem(item)" />
                 <p-button
                   icon="pi pi-trash"
                   text
                   severity="danger"
                   [disabled]="trip()?.archived"
-                  pTooltip="Delete Plan"
+                  pTooltip="Delete this plan item"
                   (click)="deleteItem(item)" />
                 <p-button
                   (click)="selectedPlace.set(null); selectedPlaceActiveTabIndex.set(0)"
