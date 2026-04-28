@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     DEFAULT_CURRENCY: str = "€"
     DEFAULT_MAP_LAT: float = 48.107
     DEFAULT_MAP_LNG: float = -2.988
+    MAPY_COM_API_KEY: str = ""
 
     @field_validator("OIDC_CLIENT_SECRET", mode="before")
     @classmethod
@@ -51,7 +52,7 @@ class Settings(BaseSettings):
             return value
         if re.search(r'[#$\\"]', value):
             raise ValueError(
-                "Config file unsupported characters: OIDC_CLIENT_SECRET contains unsupported characters ('#', '$', '\\', '\"'). Wrap the value in single quotes (like OIDC_CLIENT_SECRET='your_secret_here')"
+                "Config file unsupported characters: OIDC_CLIENT_SECRET contains unsupported characters ('#', '$', '\\', '\"'). Wrap the value in single quotes in config.env."
             )
         return value
 

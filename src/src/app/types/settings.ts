@@ -7,11 +7,15 @@ export interface Settings {
   currency: string;
   do_not_display: string[];
   tile_layer?: string;
+  tile_layer_url?: string;
+  tile_layer_attribution?: string;
+  tile_layer_max_zoom?: number;
   mode_low_network?: boolean;
   mode_dark?: boolean;
   mode_gpx_in_place?: boolean;
   totp_enabled?: boolean;
   google_apikey?: boolean | null;
+  mapy_com_apikey?: boolean | null;
   mode_display_visited?: boolean;
   mode_map_position?: boolean;
   api_token?: boolean;

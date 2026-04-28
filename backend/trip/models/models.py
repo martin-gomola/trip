@@ -3,6 +3,7 @@ from datetime import UTC, date, datetime
 from enum import Enum
 from types import SimpleNamespace
 from typing import Annotated
+from urllib.parse import quote
 
 from pydantic import BaseModel, StringConstraints, field_validator
 from sqlalchemy import Index, MetaData, UniqueConstraint, event, select
@@ -26,6 +27,39 @@ TimeString = Annotated[
     str,
     StringConstraints(min_length=2, max_length=5, pattern=r"^([01]\d|2[0-3])(:[0-5]\d)?$"),
 ]
+
+CARTO_ATTRIBUTION = (
+    '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, '
+    '&copy; <a href="https://carto.com/attributions">CARTO</a>'
+)
+MAPY_ATTRIBUTION = (
+    '&copy; <a href="https://mapy.com" target="_blank" rel="noopener">Mapy.com</a>, '
+    '&copy; <a href="https://www.seznam.cz" target="_blank" rel="noopener">Seznam.cz, a.s.</a>, '
+    '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
+)
+MAPY_TILE_PRESETS = {
+    "mapy:basic": "basic",
+    "mapy:outdoor": "outdoor",
+}
+
+
+def _resolved_tile_layer(tile_layer: str | None) -> tuple[str, str, int]:
+    settings = get_settings()
+    selected = tile_layer or settings.DEFAULT_TILE
+
+    if selected in MAPY_TILE_PRESETS:
+        if not settings.MAPY_COM_API_KEY:
+            return settings.DEFAULT_TILE, CARTO_ATTRIBUTION, 18
+
+        mapset = MAPY_TILE_PRESETS[selected]
+        apikey = quote(settings.MAPY_COM_API_KEY, safe="")
+        return (
+            f"https://api.mapy.com/v1/maptiles/{mapset}/256/{{z}}/{{x}}/{{y}}?apikey={apikey}&lang=sk",
+            MAPY_ATTRIBUTION,
+            20,
+        )
+
+    return selected, CARTO_ATTRIBUTION, 18
 
 
 @event.listens_for(Session, "after_commit")
@@ -405,19 +439,29 @@ class UserRead(UserBase):
     do_not_display: list[str]
     totp_enabled: bool
     google_apikey: bool
+    mapy_com_apikey: bool
     api_token: bool
     map_provider: str
+    tile_layer_url: str
+    tile_layer_attribution: str
+    tile_layer_max_zoom: int
     is_admin: bool
 
     @classmethod
     def serialize(cls, obj: User) -> "UserRead":
+        tile_layer = obj.tile_layer if obj.tile_layer else get_settings().DEFAULT_TILE
+        tile_layer_url, tile_layer_attribution, tile_layer_max_zoom = _resolved_tile_layer(tile_layer)
+
         return cls(
             username=obj.username,
             map_lat=obj.map_lat,
             map_lng=obj.map_lng,
             currency=obj.currency,
             do_not_display=obj.do_not_display.split(",") if obj.do_not_display else [],
-            tile_layer=obj.tile_layer if obj.tile_layer else get_settings().DEFAULT_TILE,
+            tile_layer=tile_layer,
+            tile_layer_url=tile_layer_url,
+            tile_layer_attribution=tile_layer_attribution,
+            tile_layer_max_zoom=tile_layer_max_zoom,
             mode_low_network=obj.mode_low_network,
             mode_dark=obj.mode_dark,
             mode_gpx_in_place=obj.mode_gpx_in_place,
@@ -425,6 +469,7 @@ class UserRead(UserBase):
             mode_map_position=obj.mode_map_position,
             totp_enabled=obj.totp_enabled,
             google_apikey=True if obj.google_apikey else False,
+            mapy_com_apikey=True if get_settings().MAPY_COM_API_KEY else False,
             api_token=True if obj.api_token else False,
             map_provider=obj.map_provider.value,
             duplicate_dist=obj.duplicate_dist,

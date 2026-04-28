@@ -56,6 +56,12 @@ import {
   openNavigation,
   toDotMarker,
   getGeolocationLatLng,
+  CARTO_DARK_TILE_URL,
+  CARTO_VOYAGER_TILE_URL,
+  MAPY_BASIC_TILE_PRESET,
+  MAPY_OUTDOOR_TILE_PRESET,
+  openGoogleMapsArea,
+  tileLayerFromSettings,
 } from '../../shared/map';
 import { ActivatedRoute, Router } from '@angular/router';
 import { SelectModule } from 'primeng/select';
@@ -186,6 +192,23 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     { disp: 'OpenStreetMap API', value: 'osm' },
     { disp: 'Google API', value: 'google' },
   ];
+  tileLayerOptions = computed(() => {
+    const hasMapyKey = !!this.settings()?.mapy_com_apikey;
+    return [
+      { label: 'OpenStreetMap / CARTO Voyager', value: CARTO_VOYAGER_TILE_URL },
+      { label: 'OpenStreetMap / CARTO Dark', value: CARTO_DARK_TILE_URL },
+      {
+        label: hasMapyKey ? 'Mapy.com Outdoor' : 'Mapy.com Outdoor (missing key)',
+        value: MAPY_OUTDOOR_TILE_PRESET,
+        disabled: !hasMapyKey,
+      },
+      {
+        label: hasMapyKey ? 'Mapy.com Basic' : 'Mapy.com Basic (missing key)',
+        value: MAPY_BASIC_TILE_PRESET,
+        disabled: !hasMapyKey,
+      },
+    ];
+  });
   geocodeFilterInput = new FormControl('');
   searchInput = new FormControl('');
   settingsForm: FormGroup;
@@ -422,13 +445,19 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         },
       },
       {
+        text: 'Open in Google Maps',
+        callback: (e: any) => {
+          openGoogleMapsArea(e.latlng);
+        },
+      },
+      {
         text: 'Find nearby places (Google API)',
         callback: (e: any) => {
           this.googleNearbyPlaces(e);
         },
       },
     ];
-    this.map = createMap(isTouch ? [] : contentMenuItems, settings.tile_layer);
+    this.map = createMap(isTouch ? [] : contentMenuItems, tileLayerFromSettings(settings));
     if (isTouch) this.map.on('contextmenu', (e: any) => this.addPlaceModal(e));
 
     const mapPosition = this.getMapPosition();
@@ -1277,16 +1306,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     let data: Partial<Settings> = { mode_dark: !settings.mode_dark };
 
     // If user uses default tile, we also update tile_layer to dark/voyager
-    if (
-      !settings.mode_dark &&
-      settings.tile_layer === 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
-    ) {
-      data.tile_layer = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-    } else if (
-      settings.mode_dark &&
-      settings.tile_layer === 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-    ) {
-      data.tile_layer = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+    if (!settings.mode_dark && settings.tile_layer === CARTO_VOYAGER_TILE_URL) {
+      data.tile_layer = CARTO_DARK_TILE_URL;
+    } else if (settings.mode_dark && settings.tile_layer === CARTO_DARK_TILE_URL) {
+      data.tile_layer = CARTO_VOYAGER_TILE_URL;
     }
 
     this.apiService

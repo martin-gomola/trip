@@ -49,6 +49,8 @@ import {
   gpxToPolyline,
   toDotMarker,
   getGeolocationLatLng,
+  openGoogleMapsArea,
+  tileLayerFromSettings,
 } from '../../shared/map';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DialogService, DynamicDialogRef } from 'primeng/dynamicdialog';
@@ -1421,6 +1423,12 @@ export class TripComponent implements AfterViewInit, OnDestroy {
         },
       },
       {
+        text: 'Open in Google Maps',
+        callback: (e: any) => {
+          openGoogleMapsArea(e.latlng);
+        },
+      },
+      {
         text: 'Copy coordinates',
         callback: (e: any) => {
           const { lat, lng } = e.latlng;
@@ -1429,7 +1437,7 @@ export class TripComponent implements AfterViewInit, OnDestroy {
       },
     ];
 
-    this.map = createMap(contextMenuItems, settings.tile_layer);
+    this.map = createMap(contextMenuItems, tileLayerFromSettings(settings));
     this.markerClusterGroup = createClusterGroup().addTo(this.map);
     this.map.setView([settings.map_lat, settings.map_lng]);
     this.updateMapVisualization(this.tripViewModel());

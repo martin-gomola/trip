@@ -482,20 +482,6 @@
                 </div>
               </a>
 
-              <a href="https://ko-fi.com/itskovacs" target="_blank"
-                class="group relative p-6 bg-linear-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-2xl hover:shadow-lg transition-all duration-200 overflow-clip">
-                <div class="flex gap-4 items-center relative z-10">
-                  <div class="text-4xl">☕</div>
-                  <div>
-                    <h3 class="text-lg font-semibold text-primary-900 dark:text-white mb-1">Support TRIP</h3>
-                    <p class="text-sm text-primary-600 dark:text-primary-400">Buy me a coffee</p>
-                  </div>
-                </div>
-                <div
-                  class="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500">
-                </div>
-              </a>
-
               <div (click)="tabsIndex = 4"
                 class="cursor-pointer group relative p-6 bg-primary-100 dark:bg-primary-800 rounded-2xl hover:shadow-lg transition-all duration-200 overflow-clip">
                 <div class="flex gap-4 items-center relative z-10">
@@ -757,8 +743,22 @@
                     </p-floatlabel>
 
                     <p-floatlabel variant="in" class="md:col-span-2">
+                      <p-select
+                        id="tile_layer_preset"
+                        [options]="tileLayerOptions()"
+                        optionLabel="label"
+                        optionValue="value"
+                        optionDisabled="disabled"
+                        formControlName="tile_layer"
+                        appendTo="body"
+                        pSize="small"
+                        fluid />
+                      <label for="tile_layer_preset">Map Tiles</label>
+                    </p-floatlabel>
+
+                    <p-floatlabel variant="in" class="md:col-span-2">
                       <input id="tile_layer" formControlName="tile_layer" pInputText fluid pSize="small" />
-                      <label for="tile_layer">Tile Layer URL</label>
+                      <label for="tile_layer">Custom Tile URL or Preset</label>
                     </p-floatlabel>
                   </div>
                 </div>

@@ -3,8 +3,23 @@ import 'leaflet.markercluster';
 import 'leaflet-contextmenu';
 import { ProviderBoundaries, Place } from '../types/poi';
 import { TripItem } from '../types/trip';
+import { Settings } from '../types/settings';
 
-export const DEFAULT_TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+export const CARTO_VOYAGER_TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+export const CARTO_DARK_TILE_URL = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+export const MAPY_BASIC_TILE_PRESET = 'mapy:basic';
+export const MAPY_OUTDOOR_TILE_PRESET = 'mapy:outdoor';
+export const DEFAULT_TILE_URL = CARTO_VOYAGER_TILE_URL;
+export const DEFAULT_TILE_ATTRIBUTION =
+  '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+export interface TileLayerConfig {
+  url: string;
+  attribution?: string;
+  maxZoom?: number;
+  minZoom?: number;
+}
+
 export interface ContextMenuItem {
   text: string;
   index?: number;
@@ -20,11 +35,29 @@ export interface MarkerOptions extends L.MarkerOptions {
   contextmenuItems: ContextMenuItem[];
 }
 
-export function createMap(contextMenuItems: ContextMenuItem[] = [], tilelayer: string = DEFAULT_TILE_URL): L.Map {
+type SettingsTileLayer = Pick<
+  Settings,
+  'tile_layer' | 'tile_layer_url' | 'tile_layer_attribution' | 'tile_layer_max_zoom'
+>;
+
+export function tileLayerFromSettings(settings?: SettingsTileLayer | null): TileLayerConfig {
+  return {
+    url: settings?.tile_layer_url || settings?.tile_layer || DEFAULT_TILE_URL,
+    attribution: settings?.tile_layer_attribution || DEFAULT_TILE_ATTRIBUTION,
+    maxZoom: settings?.tile_layer_max_zoom || 18,
+    minZoom: 3,
+  };
+}
+
+export function createMap(
+  contextMenuItems: ContextMenuItem[] = [],
+  tilelayer: string | TileLayerConfig = DEFAULT_TILE_URL,
+): L.Map {
   const southWest = L.latLng(-89.99, -180);
   const northEast = L.latLng(89.99, 180);
   const bounds = L.latLngBounds(southWest, northEast);
   const center: L.LatLngTuple = [48.86, 2.34];
+  const tileLayerConfig = typeof tilelayer === 'string' ? { url: tilelayer } : tilelayer;
 
   const map = L.map('map', {
     maxBoundsViscosity: 1.0,
@@ -35,11 +68,10 @@ export function createMap(contextMenuItems: ContextMenuItem[] = [], tilelayer: s
     .setView(center, 10)
     .setMaxBounds(bounds);
 
-  L.tileLayer(tilelayer, {
-    maxZoom: 18,
-    minZoom: 3,
-    attribution:
-      '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  L.tileLayer(tileLayerConfig.url || DEFAULT_TILE_URL, {
+    maxZoom: tileLayerConfig.maxZoom ?? 18,
+    minZoom: tileLayerConfig.minZoom ?? 3,
+    attribution: tileLayerConfig.attribution || DEFAULT_TILE_ATTRIBUTION,
   }).addTo(map);
 
   return map;
@@ -187,6 +219,14 @@ export function isPointInBounds(lat: number, lng: number, bounds: ProviderBounda
   if (lat < sw.lat || lat > ne.lat) return false;
 
   return sw.lng <= ne.lng ? lng >= sw.lng && lng <= ne.lng : lng >= sw.lng || lng <= ne.lng;
+}
+
+export function googleMapsAreaUrl(lat: number, lng: number, zoom = 16): string {
+  return `https://www.google.com/maps/@${lat.toFixed(6)},${lng.toFixed(6)},${zoom}z`;
+}
+
+export function openGoogleMapsArea(latlng: L.LatLngLiteral, zoom = 16) {
+  window.open(googleMapsAreaUrl(latlng.lat, latlng.lng, zoom), '_blank', 'noopener,noreferrer');
 }
 
 export function openNavigation(coordinates: L.LatLngLiteral[]) {
