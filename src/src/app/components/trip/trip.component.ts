@@ -1598,15 +1598,21 @@ export class TripComponent implements AfterViewInit, OnDestroy {
         label: 'Actions',
         items: [
           {
-            label: 'Open Navigation',
-            icon: 'pi pi-directions',
-            command: () => this.itemToNavigation(),
-          },
-          {
             label: 'Edit plan item',
             icon: 'pi pi-pencil',
             disabled: this.trip()!.archived,
             command: () => this.editItem(item),
+          },
+          {
+            label: 'Open Navigation',
+            icon: 'pi pi-directions',
+            command: () => this.itemToNavigation(item),
+          },
+          {
+            label: 'Fly to',
+            icon: 'pi pi-expand',
+            visible: !!item.lat && !!item.lng,
+            command: () => this.flyTo([item.lat, item.lng]),
           },
           {
             label: 'Delete plan item',
@@ -3579,10 +3585,15 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     URL.revokeObjectURL(downloadURL);
   }
 
-  itemToNavigation() {
-    const item = this.selectedItem();
+  itemToNavigation(item?: Pick<TripItem, 'lat' | 'lng'>) {
+    if (item?.lat && item.lng) {
+      openNavigation([{ lat: item.lat, lng: item.lng }]);
+      return;
+    }
+
+    const selectedItem = this.selectedItem();
     const placeItems = this.selectedPlaceItems();
-    const target = item || placeItems[this.selectedPlaceActiveTabIndex()];
+    const target = selectedItem || placeItems[this.selectedPlaceActiveTabIndex()];
     if (!target?.lat || !target?.lng) return;
 
     openNavigation([{ lat: target.lat, lng: target.lng }]);

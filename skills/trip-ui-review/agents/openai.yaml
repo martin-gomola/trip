@@ -1,0 +1,4 @@
+interface:
+  display_name: "TRIP UI Review"
+  short_description: "Review TRIP UI changes with agent-browser screenshots."
+  default_prompt: "Use this skill to run an agent-browser visual review of a TRIP UI change, capture desktop and mobile evidence, and report layout regressions before finalizing."

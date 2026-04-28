@@ -1,0 +1,99 @@
+:host {
+  display: block;
+}
+
+:host ::ng-deep .trip-day-item-form {
+  p-floatlabel,
+  .p-floatlabel {
+    display: block;
+    min-width: 0;
+  }
+
+  .p-inputtext,
+  .p-select,
+  .p-autocomplete,
+  .p-inputnumber {
+    min-width: 0;
+  }
+
+  .p-select {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    overflow: hidden;
+  }
+
+  .p-select-label {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    padding-right: 4.75rem;
+    text-overflow: ellipsis;
+  }
+
+  .p-select-dropdown,
+  .p-autocomplete-dropdown {
+    width: 2.75rem;
+    flex: 0 0 2.75rem;
+    align-self: stretch;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .p-select > svg {
+    position: absolute;
+    top: 50%;
+    right: 2.75rem;
+    width: 1rem;
+    height: 1rem;
+    transform: translateY(-50%);
+    color: var(--p-select-color);
+    pointer-events: none;
+  }
+
+  .p-autocomplete {
+    display: flex;
+    align-items: stretch;
+    overflow: hidden;
+  }
+
+  .p-autocomplete-input {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .p-inputnumber,
+  .p-inputnumber-fluid {
+    width: 100%;
+  }
+
+  .p-inputgroup p-floatlabel {
+    flex: 1 1 auto;
+  }
+
+  .p-inputnumber-input {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .p-inputnumber-stacked {
+    display: flex;
+    align-items: stretch;
+    overflow: hidden;
+  }
+
+  .p-inputnumber-stacked .p-inputnumber-input {
+    flex: 1 1 auto;
+  }
+
+  .p-inputnumber-stacked .p-inputnumber-button-group {
+    width: 2.5rem;
+    flex: 0 0 2.5rem;
+  }
+
+  .trip-time-input,
+  .trip-date-input {
+    padding-right: 2.75rem;
+  }
+}

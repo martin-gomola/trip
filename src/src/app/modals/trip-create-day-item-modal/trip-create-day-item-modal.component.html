@@ -1,4 +1,4 @@
-<section class="mx-auto max-w-5xl space-y-6" [formGroup]="itemForm">
+<section class="trip-day-item-form mx-auto max-w-5xl space-y-6" [formGroup]="itemForm">
   @if (helperBanner) {
     <div
       class="rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-xs text-primary-800 dark:border-primary-700 dark:bg-primary-950/40 dark:text-primary-100">
@@ -54,7 +54,7 @@
 
       <div class="relative md:col-span-2">
         <p-floatlabel variant="in">
-          <input id="time" type="time" formControlName="time" pInputText fluid />
+          <input id="time" type="time" formControlName="time" pInputText fluid class="trip-time-input" />
           <label for="time">
             @if (isSelectedPlaceAccommodation()) {
               Check-in (override)
@@ -71,7 +71,7 @@
         @if (isSelectedPlaceAccommodation() && hasCheckinOverride()) {
           <button
             type="button"
-            class="absolute right-1 top-1/2 -translate-y-1/2 text-xs text-primary-500 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-100"
+            class="absolute right-10 top-1/2 -translate-y-1/2 text-xs text-primary-500 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-100"
             pTooltip="Clear override (use place default)"
             (click)="clearTimeOverride()">
             <i class="pi pi-times-circle"></i>
@@ -79,21 +79,23 @@
         }
       </div>
 
-      <div class="relative md:col-span-7">
-        <p-floatlabel variant="in">
-          <input id="text" formControlName="text" #textInput pInputText fluid />
-          <label for="text">Plan Text</label>
-        </p-floatlabel>
+      <div class="md:col-span-7">
+        <div class="relative">
+          <p-floatlabel variant="in">
+            <input id="text" formControlName="text" #textInput pInputText fluid class="pr-12!" />
+            <label for="text">Plan Text</label>
+          </p-floatlabel>
 
-        @if (textInput.value) {
-          <p-button
-            text
-            icon="pi pi-times"
-            size="small"
-            severity="danger"
-            class="absolute right-2 top-1/2 -translate-y-1/2"
-            (click)="itemForm.get('text')?.setValue('')" />
-        }
+          @if (textInput.value) {
+            <button
+              type="button"
+              aria-label="Clear plan text"
+              class="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-red-500 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500 dark:hover:bg-red-950/40"
+              (click)="itemForm.get('text')?.setValue('')">
+              <i class="pi pi-times text-sm"></i>
+            </button>
+          }
+        </div>
       </div>
     </div>
   </div>
@@ -247,7 +249,13 @@
               </p-floatlabel>
 
               <p-floatlabel variant="in">
-                <input id="stay_checkout_time" type="time" formControlName="stay_checkout_time" pInputText fluid />
+                <input
+                  id="stay_checkout_time"
+                  type="time"
+                  formControlName="stay_checkout_time"
+                  pInputText
+                  fluid
+                  class="trip-time-input" />
                 <label for="stay_checkout_time">Checkout time</label>
               </p-floatlabel>
 
@@ -265,16 +273,21 @@
       }
 
       @if (!isSelectedPlaceAccommodation()) {
-        <p-floatlabel variant="in" class="md:col-span-2">
+        <div class="space-y-1 md:col-span-2">
+          <label
+            for="duration_minutes"
+            class="block px-1 text-xs font-medium text-primary-500 dark:text-primary-400">
+            Stop duration
+          </label>
           <input
             id="duration_minutes"
             type="time"
             [value]="durationAsTime()"
             (change)="onDurationTimeChange($event)"
             pInputText
-            fluid />
-          <label for="duration_minutes">Stop duration</label>
-        </p-floatlabel>
+            fluid
+            class="trip-time-input" />
+        </div>
       }
 
       @if (hasFreeFormCoordinates()) {
@@ -367,7 +380,8 @@
             type="date"
             formControlName="booking_cancellation_deadline"
             pInputText
-            fluid />
+            fluid
+            class="trip-date-input" />
         </div>
       </div>
     </details>

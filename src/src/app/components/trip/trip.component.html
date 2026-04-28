@@ -492,7 +492,7 @@
                       (dragleave)="onItemDragLeave(item)"
                       (drop)="onItemDrop($event, group.day, item)">
                       <div
-                        class="flex flex-col items-stretch gap-2 p-3 min-w-0 border-primary-500 rounded-s sm:flex-row sm:items-center sm:gap-3 sm:pr-9"
+                        class="flex flex-col items-stretch gap-2 p-3 pr-12 min-w-0 border-primary-500 rounded-s lg:flex-row lg:items-center lg:gap-3"
                         [class]="
                           (selectedItem()?.id === item.id ||
                             selectedPlaceItems()[selectedPlaceActiveTabIndex()]?.id === item.id) &&
@@ -504,7 +504,7 @@
                           <button
                             type="button"
                             draggable="true"
-                            class="hidden sm:inline-flex size-7 shrink-0 cursor-grab items-center justify-center rounded-md text-primary-400 hover:bg-primary-100 hover:text-primary-700 active:cursor-grabbing dark:hover:bg-primary-800 dark:hover:text-primary-200"
+                            class="hidden lg:inline-flex size-7 shrink-0 cursor-grab items-center justify-center rounded-md text-primary-400 hover:bg-primary-100 hover:text-primary-700 active:cursor-grabbing dark:hover:bg-primary-800 dark:hover:text-primary-200"
                             pTooltip="Drag to reorder within this day"
                             (click)="$event.stopPropagation()"
                             (dragstart)="onItemDragStart($event, item)"
@@ -557,7 +557,7 @@
                               </div>
                             } @else if (item.place && visibleProps.has('place')) {
                               @if (isTextAndPlaceToggled()) {
-                                <div class="flex flex-col items-start gap-2 min-w-0 w-full sm:flex-row sm:items-center sm:justify-between">
+                                <div class="flex flex-col items-start gap-2 min-w-0 w-full lg:flex-row lg:items-center lg:justify-between">
                                   @if (item.text !== item.place.name) {
                                     <span class="text-sm font-medium text-primary-900 dark:text-white truncate min-w-0">
                                       {{ item.text }}
@@ -657,7 +657,7 @@
                           }
                         </div>
 
-                        <div class="flex shrink-0 flex-wrap items-center justify-start gap-1.5 max-w-full min-w-0 sm:max-w-[42%] sm:justify-end">
+                        <div class="flex shrink-0 flex-wrap items-center justify-start gap-1.5 max-w-full min-w-0 lg:max-w-[42%] lg:justify-end">
                           @if (item.lat && item.lng && visibleProps.has('latlng')) {
                             @let coords = item.lat + ', ' + item.lng;
                             <span
@@ -701,8 +701,15 @@
                         </div>
 
                         @if (!item.isVirtualStay && !item.isVirtualCheckout) {
-                          <i
-                            class="pi pi-chevron-right absolute top-1/2 -translate-y-1/2 right-1 hidden bg-primary-100 dark:bg-primary-800 p-1 rounded text-xs opacity-0 group-hover:opacity-100 group-hover:-translate-x-2 transition-all sm:block"></i>
+                          <div
+                            class="absolute right-2 top-2 z-10 rounded-md bg-white/90 shadow-sm ring-1 ring-black/5 backdrop-blur dark:bg-primary-900/90 dark:ring-white/10">
+                            <p-button
+                              icon="pi pi-ellipsis-h"
+                              text
+                              size="small"
+                              pTooltip="Plan item actions"
+                              (click)="$event.stopPropagation(); openMenuSelectedItemActions($event, item)" />
+                          </div>
                         }
                       </div>
                     </div>
