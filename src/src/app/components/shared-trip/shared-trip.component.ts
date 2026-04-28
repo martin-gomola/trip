@@ -97,6 +97,8 @@ const HIGHLIGHT_COLORS = [
 ];
 
 const MAX_MAP_INIT_RETRIES = 5;
+const COLLAPSED_DAYS_STORAGE_PREFIX = 'sharedTrip.collapsedDays';
+const VIRTUAL_ITEM_ID_OFFSET = 1_000_000_000;
 
 @Component({
   selector: 'app-shared-trip',
@@ -170,6 +172,7 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
   selectedDay = signal<TripDay | null>(null);
   isTextAndPlaceToggled = signal<boolean>(false);
   isFullAccess = signal(false);
+  collapsedDayIds = signal<Set<number>>(new Set());
 
   panelWidth = signal<number | null>(null);
   panelDeltaX = 0;
@@ -217,6 +220,104 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
       .flatMap((vm) => vm.items)
       .filter((item) => item.place?.id === place.id);
   });
+
+  dayHasRealItems(group: DayViewModel): boolean {
+    return group.items.some((item) => !item.isVirtualStay && !item.isVirtualCheckout);
+  }
+
+  isDayCollapsed(group: DayViewModel): boolean {
+    if (this.searchQuery().trim()) return false;
+    if (this.selectedDay()?.id === group.day.id) return false;
+    if (this.highlightedDayId() === group.day.id || this.highlightedDayId() === -1) return false;
+    return this.collapsedDayIds().has(group.day.id);
+  }
+
+  collapsedDaySummary(group: DayViewModel): string {
+    const realItemCount = group.items.filter((item) => !item.isVirtualStay && !item.isVirtualCheckout).length;
+    if (realItemCount > 0) return `${realItemCount} plan${realItemCount === 1 ? '' : 's'} hidden`;
+
+    const stayItem = group.items.find((item) => item.isVirtualStay);
+    if (stayItem?.text) return stayItem.text;
+
+    const checkoutItem = group.items.find((item) => item.isVirtualCheckout);
+    if (checkoutItem?.text) return checkoutItem.text;
+
+    return 'No plans yet';
+  }
+
+  toggleDayCollapsed(dayOrGroup: TripDay | DayViewModel) {
+    const dayId = 'day' in dayOrGroup ? dayOrGroup.day.id : dayOrGroup.id;
+    const shouldCollapse = !this.collapsedDayIds().has(dayId);
+
+    this.collapsedDayIds.update((ids) => {
+      const next = new Set(ids);
+      if (shouldCollapse) next.add(dayId);
+      else next.delete(dayId);
+      return next;
+    });
+
+    if (shouldCollapse && this.selectedDay()?.id === dayId) {
+      this.selectedDay.set(null);
+      this.toggleTripDayHighlight(null);
+    }
+
+    this.persistCollapsedDays();
+  }
+
+  expandAllDays() {
+    this.collapsedDayIds.set(new Set());
+    this.persistCollapsedDays();
+  }
+
+  collapseQuietDays() {
+    const collapsedIds = new Set(this.collapsedDayIds());
+    this.tripViewModel().forEach((group) => {
+      if (!this.dayHasRealItems(group)) collapsedIds.add(group.day.id);
+    });
+    this.collapsedDayIds.set(collapsedIds);
+    this.persistCollapsedDays();
+  }
+
+  private initializeCollapsedDays(viewModel: DayViewModel[]) {
+    const tripId = this.trip()?.id;
+    if (!tripId || this.collapsedDaysInitializedForTripId === tripId) return;
+
+    const storedIds = this.readCollapsedDayIds(tripId);
+    const validDayIds = new Set(viewModel.map((group) => group.day.id));
+    const collapsedIds =
+      storedIds ?? new Set(viewModel.filter((group) => !this.dayHasRealItems(group)).map((group) => group.day.id));
+
+    this.collapsedDayIds.set(new Set([...collapsedIds].filter((id) => validDayIds.has(id))));
+    this.collapsedDaysInitializedForTripId = tripId;
+    this.persistCollapsedDays();
+  }
+
+  private collapsedDaysStorageKey(tripId: number): string {
+    return `${COLLAPSED_DAYS_STORAGE_PREFIX}:${tripId}`;
+  }
+
+  private readCollapsedDayIds(tripId: number): Set<number> | null {
+    if (typeof window === 'undefined') return null;
+
+    const raw = localStorage.getItem(this.collapsedDaysStorageKey(tripId));
+    if (!raw) return null;
+
+    try {
+      const ids = JSON.parse(raw);
+      if (!Array.isArray(ids)) return null;
+      return new Set(ids.filter((id) => Number.isInteger(id)));
+    } catch {
+      return null;
+    }
+  }
+
+  private persistCollapsedDays() {
+    if (typeof window === 'undefined') return;
+    const tripId = this.trip()?.id;
+    if (!tripId) return;
+    localStorage.setItem(this.collapsedDaysStorageKey(tripId), JSON.stringify([...this.collapsedDayIds()]));
+  }
+
   dispSelectedPlace = computed(() => {
     const place = this.selectedPlace();
     if (!place) return null;
@@ -246,13 +347,20 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
     const query = this.searchQuery().toLowerCase().trim();
     const hasQuery = query.length > 0;
     const statusesMap = new Map(this.utilsService.statuses.map((s) => [s.label, s]));
+    const dayIndexById = new Map(currentTrip.days.map((day, index) => [day.id, index]));
+    const stayItems = currentTrip.days.flatMap((candidateDay) =>
+      candidateDay.items.filter((item) => this.isAccommodationStay(item)),
+    );
 
     return currentTrip.days
-      .map((day) => {
-        let filteredItems = day.items;
+      .map((day, dayIndex) => {
+        let displayItems: ViewTripItem[] = [
+          ...(day.items as ViewTripItem[]),
+          ...this.virtualStayItemsForDay(day, dayIndex, stayItems, dayIndexById),
+        ];
 
         if (hasQuery) {
-          filteredItems = filteredItems.filter(
+          displayItems = displayItems.filter(
             (item) =>
               item.text?.toLowerCase().includes(query) ||
               item.place?.name.toLowerCase().includes(query) ||
@@ -260,22 +368,22 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
           );
         }
 
-        if (filteredItems.length === 0 && hasQuery) {
+        if (displayItems.length === 0 && hasQuery) {
           return null;
         }
-        filteredItems.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+        displayItems.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
 
         let prevLat: number | null = null;
         let prevLng: number | null = null;
         const costs = new Map<string, number>();
         let hasPlaces = false;
 
-        const items = filteredItems.map((item) => {
+        const items = displayItems.map((item) => {
           const statusObj =
             typeof item.status === 'string' ? statusesMap.get(item.status) : (item.status as TripStatus | undefined);
 
-          const lat = item.lat ?? item.place?.lat;
-          const lng = item.lng ?? item.place?.lng;
+          const lat = item.isVirtualStay ? null : (item.lat ?? item.place?.lat);
+          const lng = item.isVirtualStay ? null : (item.lng ?? item.place?.lng);
 
           let distance: number | undefined;
           if (lat != null && lng != null) {
@@ -286,11 +394,11 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
             prevLng = lng;
           }
 
-          if (item.price) {
+          if (item.price && !item.isVirtualStay && !item.isVirtualCheckout) {
             const currency = this.itemCurrency(item);
             costs.set(currency, (costs.get(currency) ?? 0) + item.price);
           }
-          if (item.place) hasPlaces = true;
+          if (item.place && !item.isVirtualStay && !item.isVirtualCheckout) hasPlaces = true;
 
           return { ...item, status: statusObj, distance };
         });
@@ -332,6 +440,63 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
     }
     return this.formatPriceSummary(costs);
   });
+
+  isAccommodationPlace(place?: Place | null): boolean {
+    return place?.category?.name?.toLowerCase() === 'accommodation';
+  }
+
+  isAccommodationStay(item: Partial<TripItem>): boolean {
+    return this.isAccommodationPlace(item.place) && item.stay_checkout_day_id != null && !!item.stay_checkout_time;
+  }
+
+  virtualStayItemsForDay(
+    day: TripDay,
+    dayIndex: number,
+    stayItems: TripItem[],
+    dayIndexById: Map<number, number>,
+  ): ViewTripItem[] {
+    const virtualItems: ViewTripItem[] = [];
+
+    for (const item of stayItems) {
+      if (!item.place || item.stay_checkout_day_id == null || !item.stay_checkout_time) continue;
+
+      const arrivalIndex = dayIndexById.get(item.day_id);
+      const checkoutIndex = dayIndexById.get(item.stay_checkout_day_id);
+      if (arrivalIndex == null || checkoutIndex == null || checkoutIndex <= arrivalIndex) continue;
+
+      if (dayIndex > arrivalIndex && dayIndex < checkoutIndex) {
+        virtualItems.push({
+          ...item,
+          status: typeof item.status === 'string' ? undefined : item.status,
+          id: -(VIRTUAL_ITEM_ID_OFFSET + item.id * 10 + day.id),
+          day_id: day.id,
+          time: '00:00',
+          text: `Staying at ${item.place.name}`,
+          comment: undefined,
+          price: undefined,
+          isVirtualStay: true,
+          sourceItemId: item.id,
+        });
+      }
+
+      if (day.id === item.stay_checkout_day_id) {
+        virtualItems.push({
+          ...item,
+          status: typeof item.status === 'string' ? undefined : item.status,
+          id: -(VIRTUAL_ITEM_ID_OFFSET + item.id * 10 + 1),
+          day_id: day.id,
+          time: item.stay_checkout_time,
+          text: `Check out · ${item.place.name}`,
+          comment: undefined,
+          price: undefined,
+          isVirtualCheckout: true,
+          sourceItemId: item.id,
+        });
+      }
+    }
+
+    return virtualItems;
+  }
 
   itemCurrency(item: Partial<TripItem>): string {
     return item.price_currency || item.place?.price_currency || this.trip()?.currency || '';
@@ -522,6 +687,7 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
   roadbookLegendGroups: RoadbookLegendGroup[] = ROADBOOK_LEGEND_GROUPS;
   exchangeRates = signal<Record<string, number>>({});
   private exchangeRateKey = '';
+  private collapsedDaysInitializedForTripId: number | null = null;
 
   map?: L.Map;
   markerClusterGroup?: L.MarkerClusterGroup;
@@ -546,6 +712,11 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
     this.plansSearchInput.valueChanges
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed())
       .subscribe((value) => this.searchQuery.set(value || ''));
+
+    effect(() => {
+      const viewModel = this.tripViewModel();
+      untracked(() => this.initializeCollapsedDays(viewModel));
+    });
 
     effect(() => {
       const trip = this.trip();
@@ -882,8 +1053,18 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
         items: [
           {
             label: 'Open Navigation',
-            icon: 'pi pi-car',
-            command: () => this.itemToNavigation(),
+            icon: 'pi pi-directions',
+            disabled: !this.itemLatLng(item),
+            command: () => this.itemToNavigation(item),
+          },
+          {
+            label: 'Fly to',
+            icon: 'pi pi-expand',
+            visible: !!this.itemLatLng(item),
+            command: () => {
+              const coords = this.itemLatLng(item);
+              if (coords) this.flyTo(coords);
+            },
           },
         ],
       },
@@ -900,6 +1081,11 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
             label: 'Summary',
             icon: 'pi pi-minus',
             command: () => this.onDayClick(d),
+          },
+          {
+            label: this.collapsedDayIds().has(d.id) ? 'Expand day' : 'Collapse day',
+            icon: this.collapsedDayIds().has(d.id) ? 'pi pi-angle-down' : 'pi pi-angle-right',
+            command: () => this.toggleDayCollapsed(d),
           },
           {
             label: 'Highlight',
@@ -956,7 +1142,23 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
       ],
     };
 
-    this.menuTripActionsItems = [lists, actions];
+    const itineraryView = {
+      label: 'Itinerary View',
+      items: [
+        {
+          label: 'Expand all days',
+          icon: 'pi pi-angle-down',
+          command: () => this.expandAllDays(),
+        },
+        {
+          label: 'Collapse quiet days',
+          icon: 'pi pi-angle-right',
+          command: () => this.collapseQuietDays(),
+        },
+      ],
+    };
+
+    this.menuTripActionsItems = [lists, itineraryView, actions];
     this.menuTripActions.toggle(event);
   }
 
@@ -969,6 +1171,11 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
             label: 'Open Navigation',
             icon: 'pi pi-car',
             command: () => this.tripDayToNavigation(d.id),
+          },
+          {
+            label: this.collapsedDayIds().has(d.id) ? 'Expand day' : 'Collapse day',
+            icon: this.collapsedDayIds().has(d.id) ? 'pi pi-angle-down' : 'pi pi-angle-right',
+            command: () => this.toggleDayCollapsed(d),
           },
           {
             label: 'Highlight',
@@ -1352,13 +1559,26 @@ export class SharedTripComponent implements AfterViewInit, OnDestroy {
     URL.revokeObjectURL(downloadURL);
   }
 
-  itemToNavigation() {
-    const item = this.selectedItem();
-    const placeItems = this.selectedPlaceItems();
-    const target = item || placeItems[this.selectedPlaceActiveTabIndex()];
-    if (!target?.lat || !target?.lng) return;
+  private itemLatLng(item?: Partial<TripItem | ViewTripItem> | null): [number, number] | null {
+    const lat = item?.lat ?? item?.place?.lat;
+    const lng = item?.lng ?? item?.place?.lng;
+    return lat != null && lng != null ? [lat, lng] : null;
+  }
 
-    openNavigation([{ lat: target.lat, lng: target.lng }]);
+  itemToNavigation(item?: Partial<TripItem | ViewTripItem>) {
+    const directCoords = this.itemLatLng(item);
+    if (directCoords) {
+      openNavigation([{ lat: directCoords[0], lng: directCoords[1] }]);
+      return;
+    }
+
+    const selectedItem = this.selectedItem();
+    const placeItems = this.selectedPlaceItems();
+    const target = selectedItem || placeItems[this.selectedPlaceActiveTabIndex()];
+    const coords = this.itemLatLng(target);
+    if (!coords) return;
+
+    openNavigation([{ lat: coords[0], lng: coords[1] }]);
   }
 
   tripDayToNavigation(dayId: number) {

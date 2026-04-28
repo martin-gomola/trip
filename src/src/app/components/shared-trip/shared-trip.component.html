@@ -279,11 +279,21 @@
                 @let visibleProps = selectedItemPropsSet();
                 <div class="space-y-4 pb-4">
                   @for (group of tripViewModel(); track group.day.id) {
+                    @let dayCollapsed = isDayCollapsed(group);
                     <div
                       class="z-20 sticky top-0 flex items-center justify-between gap-2 p-4 min-w-0 bg-primary-50 dark:bg-primary-800 hover:bg-primary-100 border-b border-primary-200 dark:hover:bg-primary-900 transition-colors border-l-primary-500 dark:border-l-primary-400 cursor-pointer"
                       [class]="selectedDay()?.id == group.day.id ? 'border-l-4' : 'border-l-0'"
                       (click)="onDayClick(group.day)">
                       <div class="flex items-center gap-3 min-w-0 flex-1">
+                        <button
+                          type="button"
+                          class="shrink-0 inline-flex size-8 items-center justify-center rounded-md text-primary-500 transition-colors hover:bg-primary-100 hover:text-primary-800 dark:hover:bg-primary-900 dark:hover:text-primary-100"
+                          [attr.aria-expanded]="!dayCollapsed"
+                          [attr.aria-label]="dayCollapsed ? 'Expand day' : 'Collapse day'"
+                          [pTooltip]="dayCollapsed ? 'Expand day' : 'Collapse day'"
+                          (click)="toggleDayCollapsed(group); $event.stopPropagation()">
+                          <i [class]="dayCollapsed ? 'pi pi-chevron-right text-xs' : 'pi pi-chevron-down text-xs'"></i>
+                        </button>
                         <div
                           class="shrink-0 flex items-center justify-center w-10 h-10 rounded-lg bg-primary-100 dark:bg-primary-900/30"
                           [class]="highlightedDayId() === group.day.id ? 'ring-2 ring-primary-500 bg-primary-200' : ''">
@@ -296,13 +306,18 @@
                           <p class="text-xs text-primary-500 dark:text-primary-400 truncate">
                             {{ group.day.dt | date: 'd MMM, y' }}
                           </p>
+                          @if (dayCollapsed) {
+                            <p class="mt-0.5 text-xs text-primary-500 dark:text-primary-400 truncate">
+                              {{ collapsedDaySummary(group) }}
+                            </p>
+                          }
                         </div>
                       </div>
 
                       <div class="shrink-0 flex items-center gap-2">
                         @if (visibleProps.has('price') && group.stats.costSummary) {
                           <span
-                            class="flex items-center bg-primary-100 dark:bg-primary-800 text-primary-900 dark:text-white px-2 py-1 text-xs font-medium rounded-md">
+                            class="hidden items-center bg-primary-100 dark:bg-primary-800 text-primary-900 dark:text-white px-2 py-1 text-xs font-medium rounded-md sm:flex">
                             {{ group.stats.costSummary }}
                           </span>
                         }
@@ -314,15 +329,17 @@
                       </div>
                     </div>
 
-                    <div class="space-y-2 pl-4 md:pr-4">
+                    @if (!dayCollapsed) {
+                    <div class="space-y-2 px-2 md:px-4">
                       @for (item of group.items; track item.id) {
                         <div
                           class="group relative rounded-s-lg md:rounded-lg bg-white dark:bg-primary-900 border-s border-y md:border-x border-primary-200 dark:border-primary-700 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-sm transition-all cursor-pointer"
-                          (click)="onRowClick(item)"
-                          (mouseenter)="onRowEnter(item)"
-                          (mouseleave)="onRowLeave()">
+                          [class.cursor-default]="item.isVirtualStay || item.isVirtualCheckout"
+                          (click)="item.isVirtualStay || item.isVirtualCheckout ? null : onRowClick(item)"
+                          (mouseenter)="item.isVirtualStay || item.isVirtualCheckout ? null : onRowEnter(item)"
+                          (mouseleave)="item.isVirtualStay || item.isVirtualCheckout ? null : onRowLeave()">
                           <div
-                            class="flex items-center gap-3 p-3 min-w-0 border-primary-500 rounded-s"
+                            class="flex flex-col items-stretch gap-2 p-3 pr-12 min-w-0 border-primary-500 rounded-s lg:flex-row lg:items-center lg:gap-3"
                             [class]="
                               selectedItem()?.id === item.id ||
                               selectedPlaceItems()[selectedPlaceActiveTabIndex()]?.id === item.id
@@ -335,15 +352,35 @@
                                   class="absolute -top-1 -right-1 w-3 h-3 rounded-full"
                                   [style.background]="item.status.color"></span>
                               }
-                              <span
-                                class="px-2.5 py-1 text-xs sm:text-sm font-mono font-medium bg-primary-100 dark:bg-primary-800 text-primary-700 dark:text-primary-300 rounded whitespace-nowrap">
-                                {{ item.time }}
-                              </span>
+                              @if (item.isVirtualStay) {
+                                <span
+                                  class="inline-flex items-center gap-1 px-2.5 py-1 text-xs sm:text-sm font-medium bg-primary-100 dark:bg-primary-800 text-primary-700 dark:text-primary-300 rounded whitespace-nowrap">
+                                  <i class="pi pi-building text-xs"></i>
+                                  Stay
+                                </span>
+                              } @else {
+                                <span
+                                  class="px-2.5 py-1 text-xs sm:text-sm font-mono font-medium bg-primary-100 dark:bg-primary-800 text-primary-700 dark:text-primary-300 rounded whitespace-nowrap">
+                                  {{ item.time }}
+                                </span>
+                              }
                             </div>
 
                             <div class="flex-1 min-w-0">
                               <div class="flex items-center gap-2 min-w-0">
-                                @if (item.place && visibleProps.has('place')) {
+                                @if (item.isVirtualStay) {
+                                  <div
+                                    class="flex items-center gap-2 px-2.5 py-1 min-w-0 rounded-lg bg-primary-100 text-primary-700 dark:bg-primary-800 dark:text-primary-200">
+                                    <i class="pi pi-moon text-xs shrink-0"></i>
+                                    <span class="text-sm font-medium truncate">{{ item.text }}</span>
+                                  </div>
+                                } @else if (item.isVirtualCheckout) {
+                                  <div
+                                    class="flex items-center gap-2 px-2.5 py-1 min-w-0 rounded-lg bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+                                    <i class="pi pi-sign-out text-xs shrink-0"></i>
+                                    <span class="text-sm font-medium truncate">{{ item.text }}</span>
+                                  </div>
+                                } @else if (item.place && visibleProps.has('place')) {
                                   @if (isTextAndPlaceToggled()) {
                                     <div class="flex flex-row items-center justify-between gap-2 min-w-0 w-full">
                                       @if (item.text !== item.place.name) {
@@ -432,16 +469,27 @@
                               }
                             </div>
 
-                            <i
-                              class="pi pi-chevron-right absolute top-1/2 -translate-y-1/2 right-1 bg-primary-100 dark:bg-primary-800 p-1 rounded text-xs opacity-0 group-hover:opacity-100 group-hover:-translate-x-2 transition-all"></i>
+                            @if (!item.isVirtualStay && !item.isVirtualCheckout) {
+                              <div
+                                class="absolute right-2 top-2 z-10 rounded-md bg-white/90 shadow-sm ring-1 ring-black/5 backdrop-blur dark:bg-primary-900/90 dark:ring-white/10">
+                                <p-button
+                                  icon="pi pi-ellipsis-h"
+                                  text
+                                  size="small"
+                                  pTooltip="Plan item actions"
+                                  (click)="$event.stopPropagation(); openMenuSelectedItemActions($event, item)" />
+                              </div>
+                            }
                           </div>
                         </div>
                       } @empty {
-                        <div class="flex flex-col items-center justify-center py-4">
-                          <h3 class="text-lg font-semibold text-primary-900 dark:text-white mb-2">No plans yet</h3>
+                        <div
+                          class="flex flex-col items-center justify-center rounded-lg border border-dashed border-primary-200 bg-white/70 px-3 py-6 text-center dark:border-primary-700 dark:bg-primary-900/70">
+                          <h3 class="text-sm font-semibold text-primary-900 dark:text-white">No plans yet</h3>
                         </div>
                       }
                     </div>
+                    }
                   }
                 </div>
               } @placeholder (minimum 0.4s) {
