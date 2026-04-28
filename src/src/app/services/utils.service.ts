@@ -30,7 +30,7 @@ export class UtilsService {
   }
 
   toGithubTRIP() {
-    window.open('https://github.com/itskovacs/trip', '_blank');
+    window.open('https://github.com/martin-gomola/trip', '_blank');
   }
 
   initDarkMode(): void {

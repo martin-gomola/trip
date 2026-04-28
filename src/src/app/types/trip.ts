@@ -177,6 +177,9 @@ export interface ViewTripItem extends TripItem {
   distance?: number;
   eta?: string;
   travelDuration?: string;
+  earliestStartTime?: string;
+  stopDurationMinutes?: number;
+  scheduleConflictMinutes?: number;
   isHome?: boolean;
   isVirtualStay?: boolean;
   isVirtualCheckout?: boolean;
@@ -238,4 +241,5 @@ export interface TripRetimingChange {
   newTime: string;
   travelDuration: string;
   distance?: number;
+  reason?: string;
 }

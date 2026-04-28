@@ -153,12 +153,10 @@
   <section
     [class]="isPlansPanelCollapsed() ? '-translate-x-full left-0!' : 'translate-x-0'"
     [class.bottom-4]="selectedPanelHeight() === 0"
-    [style.bottom.px]="selectedPanelHeight() > 0 ? selectedPanelHeight() + 16 : null"
-    [style.width.px]="panelWidth()"
-    [style.height]="
-      selectedPanelHeight() > 0 ? 'calc(100vh - 2rem - ' + selectedPanelHeight() + 'px)' : 'calc(100vh - 2rem)'
-    "
-    class="fixed top-4 left-4 right-4 md:h-auto! md:bottom-4! md:w-sm lg:w-md xl:w-lg md:max-w-1/3 z-40 transition-transform duration-300 ease-out">
+    [style.bottom.px]="plansPanelBottomPx()"
+    [style.width.px]="plansPanelWidthPx()"
+    [style.height]="plansPanelHeightStyle()"
+    class="fixed top-2 left-2 right-2 max-w-[calc(100vw-1rem)] overflow-hidden md:top-4 md:left-4 md:right-4 md:h-auto! md:bottom-4! md:w-sm lg:w-md xl:w-lg md:max-w-1/3 z-40 transition-transform duration-300 ease-out">
     <div
       class="flex h-full overflow-hidden shadow rounded-lg ring-1 ring-black/5 dark:ring-white/10 bg-white/70 dark:bg-black/70 backdrop-blur-xl">
       <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -195,7 +193,12 @@
 
             <div class="flex gap-1">
               <p-button text icon="pi pi-ellipsis-h" severity="secondary" (click)="openMenuTripActionsItems($event)" />
-              <p-menu #menuTripActions [model]="menuTripActionsItems" [popup]="true" appendTo="body" />
+              <p-menu
+                #menuTripActions
+                [model]="menuTripActionsItems"
+                [popup]="true"
+                appendTo="body"
+                [pt]="{ root: 'trip-mobile-actions' }" />
               <div class="flex sm:hidden">
                 <p-button text icon="pi pi-window-minimize" (click)="togglePlansPanel()" />
               </div>
@@ -234,7 +237,12 @@
                   text
                   size="small"
                   pTooltip="Export" />
-                <p-menu #menuTripExport [model]="menuTripExportItems" appendTo="body" [popup]="true" />
+                <p-menu
+                  #menuTripExport
+                  [model]="menuTripExportItems"
+                  appendTo="body"
+                  [popup]="true"
+                  [pt]="{ root: 'trip-mobile-actions' }" />
                 <p-button
                   icon="pi pi-plus"
                   [disabled]="trip()?.archived"
@@ -377,10 +385,10 @@
             <div class="space-y-4 pb-4">
               @for (group of tripViewModel(); track group.day.id) {
                 <div
-                  class="z-20 sticky top-0 flex items-center justify-between gap-2 p-4 min-w-0 bg-primary-50 dark:bg-primary-800 hover:bg-primary-100 border-b border-b-primary-200 dark:border-b-primary-400 dark:hover:bg-primary-900 transition-colors border-l-primary-500 dark:border-l-primary-400 cursor-pointer"
+                  class="z-20 sticky top-0 flex flex-col gap-3 p-4 min-w-0 bg-primary-50 dark:bg-primary-800 hover:bg-primary-100 border-b border-b-primary-200 dark:border-b-primary-400 dark:hover:bg-primary-900 transition-colors border-l-primary-500 dark:border-l-primary-400 cursor-pointer sm:flex-row sm:items-center sm:justify-between sm:gap-2"
                   [class]="selectedDay()?.id == group.day.id ? 'border-l-4' : 'border-l-0'"
                   (click)="onDayClick(group.day)">
-                  <div class="flex items-center gap-3 min-w-0 flex-1">
+                  <div class="flex items-center gap-3 min-w-0 w-full sm:flex-1">
                     <div
                       class="shrink-0 flex items-center justify-center w-10 h-10 rounded-lg bg-primary-100 dark:bg-primary-900/30"
                       [class]="highlightedDayId() === group.day.id ? 'ring-2 ring-primary-500 bg-primary-200' : ''">
@@ -396,14 +404,14 @@
                     </div>
                   </div>
 
-                  <div class="shrink-0 flex items-center gap-2">
+                  <div class="flex w-full shrink-0 items-center justify-between gap-1 sm:w-auto sm:justify-end sm:gap-2">
                     @if (dayHasActiveStay(group.day)) {
                       <label
-                        class="flex items-center gap-1 bg-primary-50 dark:bg-primary-900 text-primary-700 dark:text-primary-300 px-2 py-1 text-xs font-medium rounded-md cursor-text"
+                        class="flex min-w-0 items-center gap-1 bg-primary-50 dark:bg-primary-900 text-primary-700 dark:text-primary-300 px-2 py-1 text-xs font-medium rounded-md cursor-text"
                         pTooltip="Time we leave the accommodation on this day"
                         (click)="$event.stopPropagation()">
                         <i class="pi pi-clock text-[10px]"></i>
-                        <span class="select-none">Day starts</span>
+                        <span class="hidden select-none sm:inline">Day starts</span>
                         <input
                           type="time"
                           [value]="dayStartTimeDisplay(group.day)"
@@ -415,9 +423,19 @@
                     }
                     @if (visibleProps.has('price') && group.stats.costSummary) {
                       <span
-                        class="flex items-center bg-primary-100 dark:bg-primary-800 text-primary-900 dark:text-white px-2 py-1 text-xs font-medium rounded-md">
+                        class="hidden items-center bg-primary-100 dark:bg-primary-800 text-primary-900 dark:text-white px-2 py-1 text-xs font-medium rounded-md sm:flex">
                         {{ group.stats.costSummary }}
                       </span>
+                    }
+                    @if (canFixDaySchedule(group.day)) {
+                      <p-button
+                        icon="pi pi-clock"
+                        severity="danger"
+                        [disabled]="trip()?.archived"
+                        (click)="fixDaySchedule(group.day); $event.stopPropagation()"
+                        text
+                        size="small"
+                        pTooltip="Fix timing conflicts" />
                     }
                     @if (canRetimeDay(group.day)) {
                       <p-button
@@ -430,7 +448,7 @@
                     }
                     <p-button
                       icon="pi pi-plus"
-                      [disabled]="trip()?.archived"
+                      [disabled]="!!trip()?.archived"
                       (click)="addItemToDay(group.day); $event.stopPropagation()"
                       text
                       size="small"
@@ -443,10 +461,10 @@
                   </div>
                 </div>
 
-                <div class="space-y-2 pl-4 md:pr-4">
+                <div class="space-y-2 px-2 md:px-4">
                   @for (item of group.items; track item.id) {
                     <div
-                      class="group relative rounded-s-lg md:rounded-lg bg-white dark:bg-primary-900 border-s border-y md:border-x border-primary-200 dark:border-primary-700 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-sm transition-all cursor-pointer"
+                      class="group relative rounded-lg bg-white dark:bg-primary-900 border border-primary-200 dark:border-primary-700 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-sm transition-all cursor-pointer"
                       [class.cursor-default]="item.isVirtualStay || item.isVirtualCheckout"
                       [class.ring-2]="isMultiSelectMode() && selectedItemIds().has(item.id)"
                       [class.ring-primary-500]="isMultiSelectMode() && selectedItemIds().has(item.id)"
@@ -458,7 +476,7 @@
                       (dragleave)="onItemDragLeave(item)"
                       (drop)="onItemDrop($event, group.day, item)">
                       <div
-                        class="flex items-center gap-3 p-3 min-w-0 border-primary-500 rounded-s"
+                        class="flex flex-col items-stretch gap-2 p-3 min-w-0 border-primary-500 rounded-s sm:flex-row sm:items-center sm:gap-3 sm:pr-9"
                         [class]="
                           (selectedItem()?.id === item.id ||
                             selectedPlaceItems()[selectedPlaceActiveTabIndex()]?.id === item.id) &&
@@ -502,7 +520,7 @@
                         </div>
 
                         <div class="flex-1 min-w-0">
-                          <div class="flex items-center gap-2 min-w-0">
+                          <div class="flex flex-wrap items-center gap-2 min-w-0">
                             @if (item.isVirtualStay) {
                               <div
                                 class="flex items-center gap-2 px-2.5 py-1 min-w-0 rounded-lg bg-primary-100 text-primary-700 dark:bg-primary-800 dark:text-primary-200">
@@ -523,14 +541,14 @@
                               </div>
                             } @else if (item.place && visibleProps.has('place')) {
                               @if (isTextAndPlaceToggled()) {
-                                <div class="flex flex-row items-center justify-between gap-2 min-w-0 w-full">
+                                <div class="flex flex-col items-start gap-2 min-w-0 w-full sm:flex-row sm:items-center sm:justify-between">
                                   @if (item.text !== item.place.name) {
                                     <span class="text-sm font-medium text-primary-900 dark:text-white truncate min-w-0">
                                       {{ item.text }}
                                     </span>
                                   }
                                   <div
-                                    class="flex color-bg-opacity items-center gap-2 px-2.5 py-1 min-w-0 rounded-lg"
+                                    class="flex max-w-full color-bg-opacity items-center gap-2 px-2.5 py-1 min-w-0 rounded-lg"
                                     [style.--color-bg-opacity]="item.place.category.color">
                                     <img
                                       [src]="item.place.image || item.place.category.image"
@@ -542,7 +560,7 @@
                                 </div>
                               } @else {
                                 <div
-                                  class="flex color-bg-opacity items-center gap-2 px-2.5 py-1 min-w-0 rounded-lg"
+                                  class="flex max-w-full color-bg-opacity items-center gap-2 px-2.5 py-1 min-w-0 rounded-lg"
                                   [style.--color-bg-opacity]="item.place.category.color">
                                   <img
                                     [src]="item.place.image || item.place.category.image"
@@ -566,9 +584,10 @@
                           @if (
                             !item.isVirtualStay &&
                             (item.eta || item.travelDuration || item.checkinTime) &&
-                            visibleProps.has('distance')
+                            (visibleProps.has('distance') || etaDeltaBadge(item))
                           ) {
-                            <p class="mt-1 flex items-center gap-1.5 text-xs text-primary-500 dark:text-primary-400">
+                            <p
+                              class="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-primary-500 dark:text-primary-400">
                               <i class="pi pi-clock text-[10px]"></i>
                               @if (
                                 isAccommodationPlace(item.place) &&
@@ -612,23 +631,6 @@
                                 }
                               }
                             </p>
-                            @if (
-                              isAccommodationPlace(item.place) &&
-                              !item.isVirtualCheckout &&
-                              !item.isVirtualStay &&
-                              item.freeWindowMinutes &&
-                              item.freeWindowMinutes >= ADD_STOP_THRESHOLD_MIN &&
-                              !trip()?.archived
-                            ) {
-                              <button
-                                type="button"
-                                class="mt-1 inline-flex items-center gap-1 text-xs text-primary-600 dark:text-primary-300 hover:text-primary-800 dark:hover:text-primary-100 hover:underline focus:outline-none focus:ring-1 focus:ring-primary-400 rounded"
-                                pTooltip="Add an activity to fill the gap before check-in"
-                                (click)="addStopInFreeWindow(item); $event.stopPropagation()">
-                                <i class="pi pi-plus-circle text-[10px]"></i>
-                                <span>Add stop ({{ formatFreeWindow(item.freeWindowMinutes) }})</span>
-                              </button>
-                            }
                           }
 
                           @if (item.comment && visibleProps.has('comment')) {
@@ -639,7 +641,7 @@
                           }
                         </div>
 
-                        <div class="flex items-center gap-2 max-w-1/4 min-w-0">
+                        <div class="flex shrink-0 flex-wrap items-center justify-start gap-1.5 max-w-full min-w-0 sm:max-w-[42%] sm:justify-end">
                           @if (item.lat && item.lng && visibleProps.has('latlng')) {
                             @let coords = item.lat + ', ' + item.lng;
                             <span
@@ -649,19 +651,11 @@
                             >
                           }
 
-                          @if (
-                            item.price && visibleProps.has('price') && !item.isVirtualStay && !item.isVirtualCheckout
-                          ) {
-                            @let width = panelWidth();
+                          @if (item.cost_status && visibleProps.has('price') && !item.isVirtualStay && !item.isVirtualCheckout) {
                             <span
-                              class="flex items-center bg-primary-100 dark:bg-primary-800 text-primary-900 dark:text-white px-2 py-1 text-xs font-medium rounded-md whitespace-nowrap">
-                              {{ formatPrice(item.price, itemCurrency(item)) }}
-                              @if (width != null && +width > 550 && item.paid_by) {
-                                <span class="ml-px text-[10px] opacity-75">({{ item.paid_by }})</span>
-                              }
-                              @if (width != null && +width > 620 && item.cost_status) {
-                                <span class="ml-1 text-[10px] capitalize opacity-75">{{ item.cost_status }}</span>
-                              }
+                              class="flex items-center bg-primary-100 dark:bg-primary-800 text-primary-900 dark:text-white px-2 py-1 text-xs font-medium rounded-md whitespace-nowrap"
+                              [title]="costStatusDisplayLabel(item.cost_status)">
+                              {{ costStatusDisplayLabel(item.cost_status) }}
                             </span>
                           }
 
@@ -692,7 +686,7 @@
 
                         @if (!item.isVirtualStay && !item.isVirtualCheckout) {
                           <i
-                            class="pi pi-chevron-right absolute top-1/2 -translate-y-1/2 right-1 bg-primary-100 dark:bg-primary-800 p-1 rounded text-xs opacity-0 group-hover:opacity-100 group-hover:-translate-x-2 transition-all"></i>
+                            class="pi pi-chevron-right absolute top-1/2 -translate-y-1/2 right-1 hidden bg-primary-100 dark:bg-primary-800 p-1 rounded text-xs opacity-0 group-hover:opacity-100 group-hover:-translate-x-2 transition-all sm:block"></i>
                         }
                       </div>
                     </div>
@@ -761,7 +755,12 @@
             </div>
           }
         </div>
-        <p-menu #menuPlanDayActions [model]="menuPlanDayActionsItems" appendTo="body" [popup]="true" />
+        <p-menu
+          #menuPlanDayActions
+          [model]="menuPlanDayActionsItems"
+          appendTo="body"
+          [popup]="true"
+          [pt]="{ root: 'trip-mobile-actions' }" />
       </div>
 
       <div
@@ -902,7 +901,27 @@
               size="small" />
           </div>
 
-          <div class="py-4 flex justify-end">
+          <div class="py-4 flex flex-wrap justify-end gap-2">
+            @if (showOnlyUnplannedPlaces()) {
+              <p-button
+                icon="pi pi-check-square"
+                (click)="selectDisplayedUnusedPlaces()"
+                size="small"
+                text
+                [disabled]="trip()?.archived || displayedPlaces().length === 0"
+                label="Select all" />
+              <p-button
+                icon="pi pi-trash"
+                severity="danger"
+                (click)="deleteSelectedUnusedPlaces()"
+                size="small"
+                text
+                [disabled]="trip()?.archived || selectedUnusedPlaces().length === 0"
+                [label]="'Delete' + (selectedUnusedPlaces().length ? ' (' + selectedUnusedPlaces().length + ')' : '')" />
+              @if (selectedUnusedPlaces().length) {
+                <p-button icon="pi pi-times" (click)="clearUnusedPlaceSelection()" size="small" text />
+              }
+            }
             <p-button
               [icon]="showOnlyUnplannedPlaces() ? 'pi pi-filter-fill' : 'pi pi-filter'"
               (click)="toggleUnplannedPlacesFilter()"
@@ -913,12 +932,27 @@
 
           @defer {
             @for (p of displayedPlaces(); track p.id) {
-              <app-place-list-item
-                [place]="p"
-                [editable]="p.user === username"
-                [grayscale]="!usedPlaceIds().has(p.id)"
-                (clickEmitter)="onPlaceClick(p)"
-                (editEmitter)="editPlace(p)"></app-place-list-item>
+              <div class="relative">
+                @if (showOnlyUnplannedPlaces() && canSelectUnusedPlace(p)) {
+                  <div
+                    class="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded bg-white/85 p-1 shadow-sm dark:bg-primary-900/85"
+                    (click)="$event.stopPropagation()">
+                    <p-checkbox
+                      [binary]="true"
+                      [ngModel]="isUnusedPlaceSelected(p.id)"
+                      [disabled]="!!trip()?.archived"
+                      (onChange)="setUnusedPlaceSelected(p, $event.checked)" />
+                  </div>
+                }
+                <app-place-list-item
+                  class="block"
+                  [class.pl-9]="showOnlyUnplannedPlaces() && canSelectUnusedPlace(p)"
+                  [place]="p"
+                  [editable]="p.user === username"
+                  [grayscale]="!usedPlaceIds().has(p.id)"
+                  (clickEmitter)="onPlaceClick(p)"
+                  (editEmitter)="editPlace(p)"></app-place-list-item>
+              </div>
             } @empty {
               @if (showOnlyUnplannedPlaces()) {
                 <div class="flex flex-col items-center justify-center py-12">
@@ -948,10 +982,10 @@
   @if (dispSelectedPlace(); as selection) {
     <div
       #selectedPanel
-      class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[calc(100%-2rem)] md:max-w-4xl z-40"
+      class="fixed inset-x-0 bottom-0 w-full z-40 md:left-1/2 md:right-auto md:-translate-x-1/2 md:max-w-4xl"
       animate.enter="slide-from-y"
       animate.leave="a-slide-from-y">
-      <div class="relative rounded-t-lg p-4 pb-0 max-h-[40vh] overflow-y-auto shadow bg-white dark:bg-primary-900">
+      <div class="relative rounded-t-lg p-3 pb-0 max-h-[55dvh] overflow-x-hidden overflow-y-auto shadow bg-white dark:bg-primary-900 sm:p-4 sm:pb-0 md:max-h-[40vh]">
         <div class="border-b border-primary-200 dark:border-primary-800 px-2 py-4 sm:p-4">
           <div class="flex items-center gap-3">
             @if (selectedPlaceActiveTabIndex() === selection.items.length) {
@@ -1254,10 +1288,10 @@
   @if (dispSelectedItem(); as item) {
     <div
       #selectedPanel
-      class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[calc(100%-2rem)] md:max-w-4xl z-40"
+      class="fixed inset-x-0 bottom-0 w-full z-40 md:left-1/2 md:right-auto md:-translate-x-1/2 md:max-w-4xl"
       animate.enter="slide-from-y"
       animate.leave="a-slide-from-y">
-      <div class="relative rounded-t-lg p-4 pb-0 max-h-[40vh] overflow-y-auto shadow bg-white dark:bg-primary-900">
+      <div class="relative rounded-t-lg p-3 pb-0 max-h-[55dvh] overflow-x-hidden overflow-y-auto shadow bg-white dark:bg-primary-900 sm:p-4 sm:pb-0 md:max-h-[40vh]">
         <div class="border-b border-primary-200 dark:border-primary-800 px-2 py-4 sm:p-4">
           <div class="flex items-center gap-3">
             <div class="flex flex-1 gap-4 items-center min-w-0">
@@ -1456,10 +1490,10 @@
   @if (selectedDay(); as day) {
     <div
       #selectedPanel
-      class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[calc(100%-2rem)] md:max-w-4xl z-40"
+      class="fixed inset-x-0 bottom-0 w-full z-40 md:left-1/2 md:right-auto md:-translate-x-1/2 md:max-w-4xl"
       animate.enter="slide-from-y"
       animate.leave="a-slide-from-y">
-      <div class="relative rounded-t-lg p-4 pb-0 max-h-[40vh] overflow-y-auto shadow bg-white dark:bg-primary-900">
+      <div class="relative rounded-t-lg p-3 pb-0 max-h-[55dvh] overflow-x-hidden overflow-y-auto shadow bg-white dark:bg-primary-900 sm:p-4 sm:pb-0 md:max-h-[40vh]">
         <div class="border-b border-primary-200 dark:border-primary-800 px-2 py-4 sm:p-4">
           <div class="flex items-center gap-3">
             <div class="flex-1 min-w-0 space-y-1">
@@ -1605,10 +1639,30 @@
       </div>
     </div>
   }
-  <p-menu #menuSelectedItemActions [model]="menuSelectedItemActionsItems" appendTo="body" [popup]="true" />
-  <p-menu #menuSelectedPlaceActions [model]="menuSelectedPlaceActionsItems" appendTo="body" [popup]="true" />
-  <p-menu #menuSelectedDayActions [model]="menuSelectedDayActionsItems" appendTo="body" [popup]="true" />
-  <p-menu #menuTripDayActions [model]="menuTripDayActionsItems" appendTo="body" [popup]="true" />
+  <p-menu
+    #menuSelectedItemActions
+    [model]="menuSelectedItemActionsItems"
+    appendTo="body"
+    [popup]="true"
+    [pt]="{ root: 'trip-mobile-actions' }" />
+  <p-menu
+    #menuSelectedPlaceActions
+    [model]="menuSelectedPlaceActionsItems"
+    appendTo="body"
+    [popup]="true"
+    [pt]="{ root: 'trip-mobile-actions' }" />
+  <p-menu
+    #menuSelectedDayActions
+    [model]="menuSelectedDayActionsItems"
+    appendTo="body"
+    [popup]="true"
+    [pt]="{ root: 'trip-mobile-actions' }" />
+  <p-menu
+    #menuTripDayActions
+    [model]="menuTripDayActionsItems"
+    appendTo="body"
+    [popup]="true"
+    [pt]="{ root: 'trip-mobile-actions' }" />
 </div>
 
 <p-dialog
@@ -1842,7 +1896,12 @@
     </div>
   </section>
 </p-dialog>
-<p-menu #menuTripPacking [model]="menuTripPackingItems" attachTo="body" [popup]="true" />
+<p-menu
+  #menuTripPacking
+  [model]="menuTripPackingItems"
+  attachTo="body"
+  [popup]="true"
+  [pt]="{ root: 'trip-mobile-actions' }" />
 <p-dialog
   header="Packing List"
   [draggable]="false"

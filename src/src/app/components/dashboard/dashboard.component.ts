@@ -84,6 +84,7 @@ import { RouteManagerService } from '../../services/route-manager.service';
 import { AdminUser, AppConfig, MagicLink } from '../../types/admin';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { ClipboardModule } from '@angular/cdk/clipboard';
+import { CheckboxModule } from 'primeng/checkbox';
 
 export interface ContextMenuItem {
   text: string;
@@ -124,6 +125,7 @@ export interface MarkerOptions extends L.MarkerOptions {
     PopoverModule,
     InputNumberModule,
     ClipboardModule,
+    CheckboxModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './dashboard.component.html',
@@ -145,6 +147,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
   info = signal<Info | null>(null);
   places = signal<Place[]>([]);
+  selectedBulkPlaceIds = signal<Set<number>>(new Set());
   categories = signal<Category[]>([]);
   selectedPlaceId = signal<number | null>(null);
   selectedPlaceGPX = signal<Place | null>(null);
@@ -248,6 +251,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   visiblePlaces = computed(() => {
     if (!this.viewPlacesList()) return [];
     return [...this.mapDisplayPlaces()].sort((a, b) => this.collator.compare(a.name, b.name));
+  });
+  selectedBulkPlaces = computed(() => {
+    const ids = this.selectedBulkPlaceIds();
+    return this.places().filter((place) => ids.has(place.id));
   });
   doNotDisplayOptions = computed<SelectItemGroup[]>(() => [
     {
@@ -863,6 +870,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.viewPlacesList.update((v) => !v);
     this.hideOutOfBoundsPlaces.set(false);
     this.viewPlacesListFiltering.set(false);
+    this.clearBulkPlaceSelection();
     this.searchInput.setValue('');
     this.resetGeocodeFilters();
   }
@@ -1125,6 +1133,73 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       return;
     }
     this.selectedPlaceId.set(p.id);
+  }
+
+  isBulkPlaceSelected(placeId: number): boolean {
+    return this.selectedBulkPlaceIds().has(placeId);
+  }
+
+  setBulkPlaceSelected(place: Place, selected: boolean) {
+    this.selectedBulkPlaceIds.update((ids) => {
+      const next = new Set(ids);
+      if (selected) next.add(place.id);
+      else next.delete(place.id);
+      return next;
+    });
+  }
+
+  selectVisiblePlaces() {
+    const ids = new Set(this.selectedBulkPlaceIds());
+    this.visiblePlaces().forEach((place) => ids.add(place.id));
+    this.selectedBulkPlaceIds.set(ids);
+  }
+
+  clearBulkPlaceSelection() {
+    this.selectedBulkPlaceIds.set(new Set());
+  }
+
+  deleteSelectedPlaces() {
+    const places = this.selectedBulkPlaces();
+    if (!places.length) return;
+
+    const count = places.length;
+    const modal = this.dialogService.open(YesNoModalComponent, {
+      header: `Delete ${count} Place${count === 1 ? '' : 's'}`,
+      modal: true,
+      closable: true,
+      dismissableMask: true,
+      draggable: false,
+      resizable: false,
+      breakpoints: {
+        '960px': '75vw',
+        '640px': '90vw',
+      },
+      data: `Permanently delete ${count} selected place${count === 1 ? '' : 's'}?`,
+    })!;
+
+    modal.onClose.pipe(take(1)).subscribe({
+      next: (bool) => {
+        if (!bool) return;
+        const deletedIds = new Set(places.map((place) => place.id));
+        this.utilsService.setLoading('Deleting places...');
+        forkJoin(places.map((place) => this.apiService.deletePlace(place.id)))
+          .pipe(take(1))
+          .subscribe({
+            next: () => {
+              this.places.update((currentPlaces) => currentPlaces.filter((place) => !deletedIds.has(place.id)));
+              if (this.selectedPlace() && deletedIds.has(this.selectedPlace()!.id)) this.closePlaceBox();
+              this.clearBulkPlaceSelection();
+              this.utilsService.setLoading('');
+              this.utilsService.toast('success', 'Places deleted', `${count} place${count === 1 ? '' : 's'} deleted`);
+            },
+            error: (err) => {
+              this.utilsService.setLoading('');
+              this.utilsService.toast('error', 'Delete failed', 'Could not delete selected places');
+              console.error('Bulk place delete failed:', err);
+            },
+          });
+      },
+    });
   }
 
   sortCategoriesArray(categories: Category[]): Category[] {

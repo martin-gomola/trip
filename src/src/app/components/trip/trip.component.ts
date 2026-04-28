@@ -196,6 +196,7 @@ export class TripComponent implements AfterViewInit, OnDestroy {
   isPlacesPanelVisible = signal<boolean>(false);
   isDaysPanelVisible = signal<boolean>(false);
   showOnlyUnplannedPlaces = signal<boolean>(false);
+  selectedUnusedPlaceIds = signal<Set<number>>(new Set());
   printOptions = signal<PrintOptions | null>(null);
   isArchivalReviewDisplayed = signal<boolean>(false);
   isArchiveWarningVisible = signal<boolean>(true);
@@ -206,6 +207,7 @@ export class TripComponent implements AfterViewInit, OnDestroy {
   isTextAndPlaceToggled = signal<boolean>(false);
   draggedItemId = signal<number | null>(null);
   dragOverItemId = signal<number | null>(null);
+  isCompactViewport = signal<boolean>(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
 
   panelWidth = signal<number | null>(null);
   panelDeltaX = 0;
@@ -329,128 +331,16 @@ export class TripComponent implements AfterViewInit, OnDestroy {
         if (displayItems.length === 0 && hasQuery) return null;
         displayItems.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
 
-        const anchor = this.computeDayAnchor(day, dayIndex, stayItems, dayIndexById);
-        let prevLat: number | null = anchor?.lat ?? null;
-        let prevLng: number | null = anchor?.lng ?? null;
-        let prevDepartureMinutes: number | null = anchor?.departureMinutes ?? null;
-        let chainBroken = false;
-        const costs = new Map<string, number>();
-        let hasPlaces = false;
-
-        const items = displayItems.map((item) => {
-          const rawStatusObj =
-            typeof item.status === 'string' ? statusesMap.get(item.status) : (item.status as TripStatus | undefined);
-          const statusObj = this.isAccommodationPlace(item.place) ? undefined : rawStatusObj;
-
-          const lat = item.isVirtualStay ? null : (item.lat ?? item.place?.lat);
-          const lng = item.isVirtualStay ? null : (item.lng ?? item.place?.lng);
-
-          let distance: number | undefined;
-          let eta: string | undefined;
-          let travelDuration: string | undefined;
-          let arrivalMinutes: number | null = null;
-
-          if (lat != null && lng != null && !chainBroken) {
-            if (prevLat != null && prevLng != null) {
-              const routeKey = this.routeEstimateKey({ lat: prevLat, lng: prevLng }, { lat, lng });
-              const routeEstimate = routeEstimates.get(routeKey);
-              const rawDistanceKm = routeEstimate
-                ? routeEstimate.distance / 1000
-                : computeDistLatLng(prevLat, prevLng, lat, lng);
-              distance = Math.round(rawDistanceKm * 10) / 10;
-
-              const travelMinutes = routeEstimate
-                ? Math.ceil(routeEstimate.duration / 60)
-                : this.estimateTravelMinutes(rawDistanceKm);
-              if (travelMinutes > 0) travelDuration = this.formatDurationMinutes(travelMinutes);
-              if (prevDepartureMinutes != null && travelMinutes > 0) {
-                arrivalMinutes = prevDepartureMinutes + travelMinutes;
-                eta = this.formatTimeMinutes(arrivalMinutes);
-              }
-            }
-          }
-
-          if (item.price && !item.isVirtualStay && !item.isVirtualCheckout) {
-            const currency = this.itemCurrency(item);
-            costs.set(currency, (costs.get(currency) ?? 0) + item.price);
-          }
-          if (item.place && !item.isVirtualStay && !item.isVirtualCheckout) hasPlaces = true;
-
-          const pinned = this.parseTimeMinutes(item.time);
-          const isStayArrival = this.isAccommodationStay(item) && !item.isVirtualStay && !item.isVirtualCheckout;
-
-          // For stays, `item.time` is interpreted as a check-in override
-          // (not an arrival pin), so we don't compute an ETA delta against it.
-          const etaDeltaMinutes =
-            !isStayArrival && arrivalMinutes != null && pinned != null
-              ? arrivalMinutes - pinned
-              : undefined;
-
-          // For accommodation arrivals: derive effective check-in time
-          // (override if user set it, else the place's default check-in)
-          // and the free window between arrival and check-in.
-          let effectiveCheckinTime: string | undefined;
-          let freeWindowMinutes: number | undefined;
-          if (isStayArrival) {
-            const overrideMinutes = pinned;
-            const placeCheckin = this.parseTimeMinutes(item.place?.checkin_time || '');
-            const checkinMinutes = overrideMinutes ?? placeCheckin;
-            if (checkinMinutes != null) {
-              effectiveCheckinTime = this.formatTimeMinutes(checkinMinutes);
-              if (arrivalMinutes != null) freeWindowMinutes = checkinMinutes - arrivalMinutes;
-            }
-          }
-
-          // Advance the chain. The user-pinned `time` is treated as a target,
-          // not an anchor — so we trust the computed arrival and only fall back
-          // to the pinned time when no chain is running yet (legacy behavior
-          // for trips without a home or stay context).
-          if (item.isVirtualCheckout) {
-            // Virtual checkout: hotel coords, departing at user-set check-out time.
-            if (lat != null && lng != null) {
-              prevLat = lat;
-              prevLng = lng;
-            }
-            if (pinned != null) prevDepartureMinutes = pinned;
-            chainBroken = false;
-          } else if (this.isAccommodationStay(item)) {
-            // Arriving at the accommodation that we'll stay at: chain ends here.
-            // Subsequent rows on this day get no ETA (in practice there are none).
-            if (lat != null && lng != null) {
-              prevLat = lat;
-              prevLng = lng;
-            }
-            chainBroken = true;
-          } else if (lat != null && lng != null) {
-            const baseStart = arrivalMinutes ?? pinned;
-            if (baseStart != null) {
-              const effectiveStart = pinned != null ? Math.max(baseStart, pinned) : baseStart;
-              const stopDuration = item.duration_minutes ?? item.place?.duration ?? 0;
-              prevDepartureMinutes = effectiveStart + stopDuration;
-            }
-            prevLat = lat;
-            prevLng = lng;
-          } else if (pinned != null && prevDepartureMinutes == null) {
-            // Item without coords on a day with no anchor yet — let its time
-            // start the chain so following items can still get ETAs.
-            prevDepartureMinutes = pinned + (item.duration_minutes ?? 0);
-          }
-
-          return {
-            ...item,
-            status: statusObj,
-            distance,
-            eta,
-            travelDuration,
-            etaDeltaMinutes,
-            isHome: this.isHomeItem(item),
-            checkinTime: item.place?.checkin_time,
-            checkoutTime: item.stay_checkout_time ?? item.place?.checkout_time,
-            effectiveCheckinTime,
-            freeWindowMinutes,
-            earlyArrivalMinutes: this.earlyArrivalMinutes(item, eta),
-          };
-        });
+        const scheduled = this.scheduleDayItems(
+          day,
+          dayIndex,
+          displayItems,
+          stayItems,
+          dayIndexById,
+          routeEstimates,
+          statusesMap,
+        );
+        const { items, costs, hasPlaces } = scheduled;
 
         return {
           day,
@@ -465,6 +355,153 @@ export class TripComponent implements AfterViewInit, OnDestroy {
       })
       .filter((vm) => vm !== null);
   });
+
+  scheduleDayItems(
+    day: TripDay,
+    dayIndex: number,
+    displayItems: ViewTripItem[],
+    stayItems: TripItem[],
+    dayIndexById: Map<number, number>,
+    routeEstimates: Map<string, { distance: number; duration: number }>,
+    statusesMap: Map<string, TripStatus>,
+  ): { items: ViewTripItem[]; costs: Map<string, number>; hasPlaces: boolean } {
+    const anchor = this.computeDayAnchor(day, dayIndex, stayItems, dayIndexById);
+    let prevLat: number | null = anchor?.lat ?? null;
+    let prevLng: number | null = anchor?.lng ?? null;
+    let prevDepartureMinutes: number | null = anchor?.departureMinutes ?? null;
+    let prevItem: ViewTripItem | null = null;
+    let chainBroken = false;
+    const costs = new Map<string, number>();
+    let hasPlaces = false;
+
+    const items = displayItems.map((item) => {
+      const rawStatusObj =
+        typeof item.status === 'string' ? statusesMap.get(item.status) : (item.status as TripStatus | undefined);
+      const statusObj = this.isAccommodationPlace(item.place) ? undefined : rawStatusObj;
+
+      const lat = item.isVirtualStay ? null : (item.lat ?? item.place?.lat);
+      const lng = item.isVirtualStay ? null : (item.lng ?? item.place?.lng);
+
+      let distance: number | undefined;
+      let eta: string | undefined;
+      let travelDuration: string | undefined;
+      let arrivalMinutes: number | null = null;
+
+      const previousSegmentCoversTravel = this.transportSegmentCoversNextLeg(prevItem);
+
+      if (lat != null && lng != null && !chainBroken && !previousSegmentCoversTravel) {
+        if (prevLat != null && prevLng != null) {
+          const routeKey = this.routeEstimateKey({ lat: prevLat, lng: prevLng }, { lat, lng });
+          const routeEstimate = routeEstimates.get(routeKey);
+          const rawDistanceKm = routeEstimate
+            ? routeEstimate.distance / 1000
+            : computeDistLatLng(prevLat, prevLng, lat, lng);
+          distance = Math.round(rawDistanceKm * 10) / 10;
+
+          const travelMinutes = routeEstimate
+            ? Math.ceil(routeEstimate.duration / 60)
+            : this.estimateTravelMinutes(rawDistanceKm);
+          if (travelMinutes > 0) travelDuration = this.formatDurationMinutes(travelMinutes);
+          if (prevDepartureMinutes != null && travelMinutes > 0) {
+            arrivalMinutes = prevDepartureMinutes + travelMinutes;
+            eta = this.formatTimeMinutes(arrivalMinutes);
+          }
+        }
+      }
+
+      if (item.price && !item.isVirtualStay && !item.isVirtualCheckout) {
+        const currency = this.itemCurrency(item);
+        costs.set(currency, (costs.get(currency) ?? 0) + item.price);
+      }
+      if (item.place && !item.isVirtualStay && !item.isVirtualCheckout) hasPlaces = true;
+
+      const pinned = this.parseTimeMinutes(item.time);
+      const isStayArrival = this.isAccommodationStay(item) && !item.isVirtualStay && !item.isVirtualCheckout;
+
+      // For stays, `item.time` is interpreted as a check-in override
+      // (not an arrival pin), so we don't compute an ETA delta against it.
+      const etaDeltaMinutes =
+        !isStayArrival && arrivalMinutes != null && pinned != null ? arrivalMinutes - pinned : undefined;
+      const scheduleConflictMinutes =
+        etaDeltaMinutes != null && etaDeltaMinutes >= ETA_DELTA_BADGE_THRESHOLD_MIN ? etaDeltaMinutes : undefined;
+
+      // For accommodation arrivals: derive effective check-in time
+      // (override if user set it, else the place's default check-in)
+      // and the free window between arrival and check-in.
+      let effectiveCheckinTime: string | undefined;
+      let freeWindowMinutes: number | undefined;
+      if (isStayArrival) {
+        const overrideMinutes = pinned;
+        const placeCheckin = this.parseTimeMinutes(item.place?.checkin_time || '');
+        const checkinMinutes = overrideMinutes ?? placeCheckin;
+        if (checkinMinutes != null) {
+          effectiveCheckinTime = this.formatTimeMinutes(checkinMinutes);
+          if (arrivalMinutes != null) freeWindowMinutes = checkinMinutes - arrivalMinutes;
+        }
+      }
+
+      const stopDurationMinutes = this.itemStopDurationMinutes(item);
+
+      // Advance the chain. The user-pinned `time` is treated as a target,
+      // not an anchor: we reserve the later of feasible arrival or pinned time.
+      if (item.isVirtualCheckout) {
+        // Virtual checkout: hotel coords, departing at user-set check-out time.
+        if (lat != null && lng != null) {
+          prevLat = lat;
+          prevLng = lng;
+        }
+        if (pinned != null) prevDepartureMinutes = pinned;
+        chainBroken = false;
+      } else if (this.isAccommodationStay(item)) {
+        // Arriving at the accommodation that we'll stay at: chain ends here.
+        // Subsequent rows on this day get no ETA (in practice there are none).
+        if (lat != null && lng != null) {
+          prevLat = lat;
+          prevLng = lng;
+        }
+        chainBroken = true;
+      } else if (lat != null && lng != null) {
+        const baseStart = arrivalMinutes ?? pinned;
+        if (baseStart != null) {
+          const effectiveStart =
+            pinned != null && !this.canAutoShiftScheduleItem(item)
+              ? pinned
+              : pinned != null
+                ? Math.max(baseStart, pinned)
+                : baseStart;
+          prevDepartureMinutes = effectiveStart + stopDurationMinutes;
+        }
+        prevLat = lat;
+        prevLng = lng;
+      } else if (pinned != null && prevDepartureMinutes == null) {
+        // Item without coords on a day with no anchor yet — let its time
+        // start the chain so following items can still get ETAs.
+        prevDepartureMinutes = pinned + stopDurationMinutes;
+      }
+      prevItem = item;
+
+      return {
+        ...item,
+        status: statusObj,
+        distance,
+        eta,
+        travelDuration,
+        earliestStartTime: arrivalMinutes != null ? this.formatTimeMinutes(arrivalMinutes) : undefined,
+        stopDurationMinutes,
+        etaDeltaMinutes,
+        scheduleConflictMinutes,
+        isHome: this.isHomeItem(item),
+        checkinTime: item.place?.checkin_time,
+        checkoutTime: item.stay_checkout_time ?? item.place?.checkout_time,
+        effectiveCheckinTime,
+        freeWindowMinutes,
+        earlyArrivalMinutes: this.earlyArrivalMinutes(item, eta),
+      };
+    });
+
+    return { items, costs, hasPlaces };
+  }
+
   totalPrice = computed(() => {
     const trip = this.trip();
     if (!trip?.days) return 0;
@@ -532,6 +569,15 @@ export class TripComponent implements AfterViewInit, OnDestroy {
   formatPrice(price?: number | null, currency?: string | null): string {
     if (!price) return '';
     return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(price)} ${currency || this.trip()?.currency || ''}`.trim();
+  }
+
+  costStatusDisplayLabel(status?: string | null): string {
+    if (!status) return '';
+    return status
+      .split(/[_-]/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
   }
 
   formatPriceSummary(costs: Map<string, number>): string {
@@ -699,8 +745,8 @@ export class TripComponent implements AfterViewInit, OnDestroy {
   /**
    * Render hint for the ETA-vs-pinned-time delta badge.
    * Returns null when |delta| is below the threshold (no badge shown).
-   * Negative delta = arriving earlier than planned (muted).
-   * Positive delta = arriving later than planned (red).
+   * Negative delta = schedule has spare time before the pinned start.
+   * Positive delta = the pinned start is earlier than the feasible arrival.
    */
   etaDeltaBadge(item: ViewTripItem): { label: string; cssClass: string } | null {
     if (item.etaDeltaMinutes == null) return null;
@@ -713,9 +759,9 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     const minutes = Math.abs(item.etaDeltaMinutes);
     const formatted = this.formatDurationMinutes(minutes);
     if (item.etaDeltaMinutes > 0) {
-      return { label: `${formatted} late`, cssClass: 'text-red-500 dark:text-red-400 font-medium' };
+      return { label: `starts ${formatted} too early`, cssClass: 'text-red-500 dark:text-red-400 font-medium' };
     }
-    return { label: `${formatted} early`, cssClass: 'text-primary-400 dark:text-primary-500' };
+    return { label: `${formatted} spare`, cssClass: 'text-primary-400 dark:text-primary-500' };
   }
 
   /**
@@ -750,8 +796,8 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     return `${this.formatDurationMinutes(minutes)} free`;
   }
 
-  /** Threshold (minutes) at which we surface a + Add stop prompt. */
-  readonly ADD_STOP_THRESHOLD_MIN = 60;
+  /** Threshold (minutes) at which an early arrival is counted as a useful planning gap. */
+  readonly USEFUL_GAP_THRESHOLD_MIN = 60;
 
   earlyArrivalMinutes(item: ViewTripItem, eta?: string): number | undefined {
     if (!eta || item.isVirtualStay || item.isVirtualCheckout || !this.isAccommodationPlace(item.place))
@@ -774,6 +820,13 @@ export class TripComponent implements AfterViewInit, OnDestroy {
 
     const usedIds = this.usedPlaceIds();
     return allPlaces.filter((place) => !usedIds.has(place.id));
+  });
+  selectedUnusedPlaces = computed(() => {
+    const selectedIds = this.selectedUnusedPlaceIds();
+    const usedIds = this.usedPlaceIds();
+    return this.places().filter(
+      (place) => selectedIds.has(place.id) && !usedIds.has(place.id) && place.user === this.username,
+    );
   });
   dispPackingList = computed(() => {
     const list = this.packingList();
@@ -818,7 +871,7 @@ export class TripComponent implements AfterViewInit, OnDestroy {
 
     const unbookedStays = items.filter(
       (item) =>
-        this.isAccommodationPlace(item.place) &&
+        this.isAccommodationStay(item) &&
         item.booking_status !== 'booked' &&
         item.booking_status !== 'cancelled',
     ).length;
@@ -859,9 +912,7 @@ export class TripComponent implements AfterViewInit, OnDestroy {
       });
     }
 
-    const lateItems = items.filter(
-      (item) => item.etaDeltaMinutes != null && item.etaDeltaMinutes >= ETA_DELTA_BADGE_THRESHOLD_MIN,
-    ).length;
+    const lateItems = items.filter((item) => item.scheduleConflictMinutes != null).length;
     if (lateItems) {
       warnings.push({
         id: 'late-items',
@@ -873,7 +924,7 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     }
 
     const freeWindows = items.filter(
-      (item) => item.freeWindowMinutes != null && item.freeWindowMinutes >= this.ADD_STOP_THRESHOLD_MIN,
+      (item) => item.freeWindowMinutes != null && item.freeWindowMinutes >= this.USEFUL_GAP_THRESHOLD_MIN,
     ).length;
     if (freeWindows) {
       warnings.push({
@@ -984,6 +1035,9 @@ export class TripComponent implements AfterViewInit, OnDestroy {
   markers = new Map<number, L.Marker>();
   selectedItemMarker?: L.Marker;
   highlightedMarkerElement?: HTMLElement;
+  private readonly updateCompactViewport = () => {
+    this.isCompactViewport.set(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+  };
 
   constructor() {
     this.apiService = inject(ApiService);
@@ -998,6 +1052,10 @@ export class TripComponent implements AfterViewInit, OnDestroy {
 
     this.statuses = this.utilsService.statuses;
     this.username = this.utilsService.loggedUser;
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', this.updateCompactViewport, { passive: true });
+      this.updateCompactViewport();
+    }
 
     this.plansSearchInput.valueChanges
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed())
@@ -1170,7 +1228,23 @@ export class TripComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (typeof window !== 'undefined') window.removeEventListener('resize', this.updateCompactViewport);
     this.cleanupMap();
+  }
+
+  plansPanelWidthPx(): number | null {
+    return this.isCompactViewport() ? null : this.panelWidth();
+  }
+
+  plansPanelBottomPx(): number | null {
+    const selectedHeight = this.selectedPanelHeight();
+    return selectedHeight > 0 ? selectedHeight + 16 : null;
+  }
+
+  plansPanelHeightStyle(): string | null {
+    if (this.isCompactViewport()) return null;
+    const selectedHeight = this.selectedPanelHeight();
+    return selectedHeight > 0 ? `calc(100vh - 2rem - ${selectedHeight}px)` : 'calc(100vh - 2rem)';
   }
 
   cleanupMap() {
@@ -1363,6 +1437,12 @@ export class TripComponent implements AfterViewInit, OnDestroy {
             command: () => this.retimeDay(day),
           },
           {
+            label: 'Fix Schedule',
+            icon: 'pi pi-clock',
+            disabled: !this.canFixDaySchedule(day),
+            command: () => this.fixDaySchedule(day),
+          },
+          {
             label: 'Add Home',
             icon: 'pi pi-home',
             disabled: !this.tripHomeCoordinate(),
@@ -1473,6 +1553,12 @@ export class TripComponent implements AfterViewInit, OnDestroy {
             icon: 'pi pi-refresh',
             disabled: this.trip()!.archived,
             command: () => this.retimeDay(d),
+          },
+          {
+            label: 'Fix Schedule',
+            icon: 'pi pi-clock',
+            disabled: !this.canFixDaySchedule(d),
+            command: () => this.fixDaySchedule(d),
           },
           {
             label: 'Add Home',
@@ -1607,6 +1693,12 @@ export class TripComponent implements AfterViewInit, OnDestroy {
             command: () => this.retimeDay(d),
           },
           {
+            label: 'Fix Schedule',
+            icon: 'pi pi-clock',
+            disabled: !this.canFixDaySchedule(d),
+            command: () => this.fixDaySchedule(d),
+          },
+          {
             label: 'Add Home',
             icon: 'pi pi-home',
             disabled: !this.tripHomeCoordinate() || this.trip()!.archived,
@@ -1698,6 +1790,7 @@ export class TripComponent implements AfterViewInit, OnDestroy {
 
   toggleUnplannedPlacesFilter() {
     this.showOnlyUnplannedPlaces.update((v) => !v);
+    this.clearUnusedPlaceSelection();
   }
 
   toggleArchiveTrip() {
@@ -1761,6 +1854,82 @@ export class TripComponent implements AfterViewInit, OnDestroy {
             this.trip.set(trip);
             this.selectedPlace.set(null);
             this.selectedPlaceActiveTabIndex.set(0);
+          },
+        });
+    });
+  }
+
+  isUnusedPlaceSelected(placeId: number): boolean {
+    return this.selectedUnusedPlaceIds().has(placeId);
+  }
+
+  canSelectUnusedPlace(place: Place): boolean {
+    return !this.usedPlaceIds().has(place.id) && place.user === this.username;
+  }
+
+  setUnusedPlaceSelected(place: Place, selected: boolean) {
+    if (!this.canSelectUnusedPlace(place)) return;
+    this.selectedUnusedPlaceIds.update((ids) => {
+      const next = new Set(ids);
+      if (selected) next.add(place.id);
+      else next.delete(place.id);
+      return next;
+    });
+  }
+
+  selectDisplayedUnusedPlaces() {
+    const usedIds = this.usedPlaceIds();
+    const ids = new Set(this.selectedUnusedPlaceIds());
+    this.displayedPlaces().forEach((place) => {
+      if (!usedIds.has(place.id) && place.user === this.username) ids.add(place.id);
+    });
+    this.selectedUnusedPlaceIds.set(ids);
+  }
+
+  clearUnusedPlaceSelection() {
+    this.selectedUnusedPlaceIds.set(new Set());
+  }
+
+  deleteSelectedUnusedPlaces() {
+    const places = this.selectedUnusedPlaces();
+    if (!places.length) return;
+
+    const count = places.length;
+    const modal = this.dialogService.open(YesNoModalComponent, {
+      header: `Delete ${count} Place${count === 1 ? '' : 's'}`,
+      modal: true,
+      appendTo: 'body',
+      closable: true,
+      dismissableMask: true,
+      draggable: false,
+      resizable: false,
+      data: `Permanently delete ${count} unused place${count === 1 ? '' : 's'} from Places?`,
+    })!;
+
+    modal.onClose.pipe(take(1)).subscribe((bool) => {
+      if (!bool) return;
+      const deletedIds = new Set(places.map((place) => place.id));
+      this.utilsService.setLoading('Deleting places...');
+      forkJoin(places.map((place) => this.apiService.deletePlace(place.id)))
+        .pipe(take(1))
+        .subscribe({
+          next: () => {
+            this.trip.update((trip) =>
+              trip ? { ...trip, places: trip.places.filter((place) => !deletedIds.has(place.id)) } : trip,
+            );
+            this.allPlaces.update((allPlaces) => allPlaces.filter((place) => !deletedIds.has(place.id)));
+            if (this.selectedPlace() && deletedIds.has(this.selectedPlace()!.id)) {
+              this.selectedPlace.set(null);
+              this.selectedPlaceActiveTabIndex.set(0);
+            }
+            this.clearUnusedPlaceSelection();
+            this.utilsService.setLoading('');
+            this.utilsService.toast('success', 'Places deleted', `${count} unused place${count === 1 ? '' : 's'} deleted`);
+          },
+          error: (err) => {
+            this.utilsService.setLoading('');
+            this.utilsService.toast('error', 'Delete failed', 'Could not delete selected places');
+            console.error('Delete places failed:', err);
           },
         });
     });
@@ -2082,10 +2251,40 @@ export class TripComponent implements AfterViewInit, OnDestroy {
       .find((item) => this.parseTimeMinutes(item.time) !== null);
 
     const base = lastTimedItem
-      ? this.parseTimeMinutes(lastTimedItem.time)! + (lastTimedItem.duration_minutes ?? lastTimedItem.place?.duration ?? 60)
+      ? this.parseTimeMinutes(lastTimedItem.time)! + (this.itemStopDurationMinutes(lastTimedItem) || 60)
       : this.parseTimeMinutes(day.day_start_time ?? '09:00');
     if (base == null) return undefined;
     return this.formatTimeMinutes(Math.min(base, 23 * 60 + 45));
+  }
+
+  itemStopDurationMinutes(item: Partial<TripItem> | ViewTripItem): number {
+    if ((item as ViewTripItem).isVirtualCheckout || this.isAccommodationPlace(item.place)) return 0;
+    if (this.isFlightSegment(item)) return 0;
+
+    const itemDuration = Number(item.duration_minutes);
+    if (Number.isFinite(itemDuration) && itemDuration > 0) return itemDuration;
+
+    const placeDuration = Number(item.place?.duration);
+    return Number.isFinite(placeDuration) && placeDuration > 0 ? placeDuration : 0;
+  }
+
+  isFlightSegment(item?: Partial<TripItem> | ViewTripItem | null): boolean {
+    if (!item || (item as ViewTripItem).isVirtualStay || (item as ViewTripItem).isVirtualCheckout) return false;
+    const text = item.text ?? '';
+    return /\b[A-Z]{2}\s?\d{2,4}\b/.test(text) || /\b(flight|fly|flying)\b/i.test(text);
+  }
+
+  transportSegmentCoversNextLeg(item?: Partial<TripItem> | ViewTripItem | null): boolean {
+    if (!item || (item as ViewTripItem).isVirtualStay || (item as ViewTripItem).isVirtualCheckout) return false;
+    if (this.isAccommodationStay(item)) return false;
+
+    const text = item.text ?? '';
+    return (
+      text.includes('->') ||
+      text.includes('→') ||
+      /\b[A-Z]{2}\s?\d{2,4}\b/.test(text) ||
+      /\b(transfer|flight|fly|flying|bus|drive|train|ferry|depart|departure|return|board|shuttle)\b/i.test(text)
+    );
   }
 
   canDragDayItem(item: ViewTripItem): boolean {
@@ -2093,6 +2292,8 @@ export class TripComponent implements AfterViewInit, OnDestroy {
       !this.trip()?.archived &&
       !this.isMultiSelectMode() &&
       !this.searchQuery().trim() &&
+      this.canAutoShiftScheduleItem(item) &&
+      !this.isAccommodationStay(item) &&
       !item.isVirtualStay &&
       !item.isVirtualCheckout
     );
@@ -2135,11 +2336,165 @@ export class TripComponent implements AfterViewInit, OnDestroy {
 
   canDropDayItem(day: TripDay, target: ViewTripItem, draggedItemId: number | null): boolean {
     if (draggedItemId == null || draggedItemId === target.id || !this.canDragDayItem(target)) return false;
-    return day.items.some((item) => item.id === draggedItemId);
+    const dragged = day.items.find((item) => item.id === draggedItemId);
+    return !!dragged && !this.isAccommodationStay(dragged);
+  }
+
+  travelMinutesBetweenItems(from: ViewTripItem | TripItem, to: ViewTripItem | TripItem): number {
+    if (this.transportSegmentCoversNextLeg(from)) return 0;
+
+    const fromCoord = this.tripItemCoordinate(from);
+    const toCoord = this.tripItemCoordinate(to);
+    if (!fromCoord || !toCoord) return 0;
+
+    const routeKey = this.routeEstimateKey(fromCoord, toCoord);
+    const routeEstimate = this.routeEstimates().get(routeKey);
+    if (routeEstimate) return Math.ceil(routeEstimate.duration / 60);
+
+    const distanceKm = computeDistLatLng(fromCoord.lat, fromCoord.lng, toCoord.lat, toCoord.lng);
+    return this.estimateTravelMinutes(distanceKm);
+  }
+
+  dayScheduleConflictCount(day: TripDay): number {
+    const group = this.tripViewModel().find((candidate) => candidate.day.id === day.id);
+    if (!group) return 0;
+    return group.items.filter((item) => item.scheduleConflictMinutes != null).length;
+  }
+
+  canFixDaySchedule(day: TripDay): boolean {
+    return !this.trip()?.archived && this.dayScheduleConflictCount(day) > 0;
+  }
+
+  itemStatusLabel(item: Partial<TripItem> | ViewTripItem): string | null {
+    return typeof item.status === 'string' ? item.status : (item.status?.label ?? null);
+  }
+
+  canAutoShiftScheduleItem(item: ViewTripItem | TripItem): boolean {
+    if ((item as ViewTripItem).isVirtualStay || (item as ViewTripItem).isVirtualCheckout) return false;
+    if (this.isHomeItem(item) || this.isAccommodationStay(item)) return false;
+    if (this.transportSegmentCoversNextLeg(item)) return false;
+    const status = this.itemStatusLabel(item);
+    return status !== 'booked' && status !== 'constraint';
+  }
+
+  dayItemsForScheduleFix(day: TripDay): ViewTripItem[] {
+    const trip = this.trip();
+    if (!trip) return day.items as ViewTripItem[];
+    const dayIndexById = new Map(trip.days.map((tripDay, index) => [tripDay.id, index]));
+    const dayIndex = dayIndexById.get(day.id) ?? 0;
+    const stayItems = trip.days.flatMap((candidateDay) =>
+      candidateDay.items.filter((item) => this.isAccommodationStay(item)),
+    );
+    const virtualCheckoutItems = this.virtualStayItemsForDay(day, dayIndex, stayItems, dayIndexById).filter(
+      (item) => item.isVirtualCheckout,
+    );
+    return [...(day.items as ViewTripItem[]), ...virtualCheckoutItems].sort((a, b) =>
+      (a.time || '').localeCompare(b.time || ''),
+    );
+  }
+
+  buildDayScheduleFixChanges(day: TripDay): TripRetimingChange[] {
+    const trip = this.trip();
+    if (!trip) return [];
+
+    const dayIndexById = new Map(trip.days.map((tripDay, index) => [tripDay.id, index]));
+    const dayIndex = dayIndexById.get(day.id) ?? 0;
+    const stayItems = trip.days.flatMap((candidateDay) =>
+      candidateDay.items.filter((item) => this.isAccommodationStay(item)),
+    );
+    const anchor = this.computeDayAnchor(day, dayIndex, stayItems, dayIndexById);
+    let prevLat: number | null = anchor?.lat ?? null;
+    let prevLng: number | null = anchor?.lng ?? null;
+    let prevDepartureMinutes: number | null = anchor?.departureMinutes ?? null;
+    let prevItem: ViewTripItem | TripItem | null = null;
+    let chainBroken = false;
+    const changes: TripRetimingChange[] = [];
+
+    for (const item of this.dayItemsForScheduleFix(day)) {
+      const pinned = this.parseTimeMinutes(item.time);
+      const coordinate = this.tripItemCoordinate(item);
+      let feasibleStart: number | null = null;
+      let travelMinutes = 0;
+      let distance: number | undefined;
+
+      const previousSegmentCoversTravel = this.transportSegmentCoversNextLeg(prevItem);
+
+      if (coordinate && !chainBroken && prevLat != null && prevLng != null && !previousSegmentCoversTravel) {
+        const routeKey = this.routeEstimateKey({ lat: prevLat, lng: prevLng }, coordinate);
+        const routeEstimate = this.routeEstimates().get(routeKey);
+        const rawDistanceKm = routeEstimate
+          ? routeEstimate.distance / 1000
+          : computeDistLatLng(prevLat, prevLng, coordinate.lat, coordinate.lng);
+        distance = Math.round(rawDistanceKm * 10) / 10;
+        travelMinutes = routeEstimate ? Math.ceil(routeEstimate.duration / 60) : this.estimateTravelMinutes(rawDistanceKm);
+        if (prevDepartureMinutes != null) feasibleStart = prevDepartureMinutes + travelMinutes;
+      } else if (!coordinate && prevDepartureMinutes != null && pinned != null) {
+        feasibleStart = prevDepartureMinutes;
+      }
+
+      const conflictMinutes = feasibleStart != null && pinned != null ? feasibleStart - pinned : null;
+      const shouldMove =
+        conflictMinutes != null &&
+        conflictMinutes >= ETA_DELTA_BADGE_THRESHOLD_MIN &&
+        this.canAutoShiftScheduleItem(item);
+      const effectiveStart =
+        pinned != null && !this.canAutoShiftScheduleItem(item)
+          ? pinned
+          : shouldMove && feasibleStart != null
+            ? feasibleStart
+            : feasibleStart != null && pinned != null
+              ? Math.max(feasibleStart, pinned)
+              : (pinned ?? feasibleStart);
+
+      if (shouldMove && feasibleStart != null) {
+        changes.push({
+          item: this.normalizeItem(item),
+          oldTime: item.time ?? '',
+          newTime: this.formatTimeMinutes(feasibleStart),
+          travelDuration: this.formatDurationMinutes(travelMinutes),
+          distance,
+          reason: `starts ${this.formatDurationMinutes(conflictMinutes!)} too early`,
+        });
+      }
+
+      if (item.isVirtualCheckout) {
+        if (coordinate) {
+          prevLat = coordinate.lat;
+          prevLng = coordinate.lng;
+        }
+        if (pinned != null) prevDepartureMinutes = pinned;
+        chainBroken = false;
+      } else if (this.isAccommodationStay(item)) {
+        if (coordinate) {
+          prevLat = coordinate.lat;
+          prevLng = coordinate.lng;
+        }
+        chainBroken = true;
+      } else {
+        if (effectiveStart != null) prevDepartureMinutes = effectiveStart + this.itemStopDurationMinutes(item);
+        if (coordinate) {
+          prevLat = coordinate.lat;
+          prevLng = coordinate.lng;
+        }
+      }
+      prevItem = item;
+    }
+
+    return changes;
+  }
+
+  fixDaySchedule(day: TripDay) {
+    const changes = this.buildDayScheduleFixChanges(day);
+    if (!changes.length) {
+      this.utilsService.toast('info', 'No automatic fix', 'Pinned or constraint items need manual adjustment');
+      return;
+    }
+    this.openRetimingPreview(day, changes, 'Fix Day Schedule');
   }
 
   reorderDayItem(day: TripDay, draggedItemId: number, targetItemId: number) {
     const originalItems = day.items
+      .filter((item) => !this.isAccommodationStay(item))
       .slice()
       .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
     const fromIndex = originalItems.findIndex((item) => item.id === draggedItemId);
@@ -2151,8 +2506,24 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     reorderedItems.splice(toIndex, 0, movedItem);
 
     const timeSlots = originalItems.map((item) => item.time ?? null);
+    let earliestStart: number | null = null;
     const changes = reorderedItems
-      .map((item, index) => ({ item, newTime: timeSlots[index] }))
+      .map((item, index) => {
+        const slotStart = this.parseTimeMinutes(timeSlots[index]);
+        const scheduledStart =
+          earliestStart == null ? slotStart : Math.max(slotStart ?? earliestStart, earliestStart);
+        const newTime = scheduledStart == null ? timeSlots[index] : this.formatTimeMinutes(scheduledStart);
+
+        const nextItem = reorderedItems[index + 1];
+        if (scheduledStart != null) {
+          const travelMinutes = nextItem ? this.travelMinutesBetweenItems(item, nextItem) : 0;
+          earliestStart = scheduledStart + this.itemStopDurationMinutes(item) + travelMinutes;
+        } else {
+          earliestStart = null;
+        }
+
+        return { item, newTime };
+      })
       .filter((change) => change.item.time !== change.newTime);
     if (!changes.length) return;
 
@@ -2198,22 +2569,6 @@ export class TripComponent implements AfterViewInit, OnDestroy {
       return;
     }
     this.addItem(dayId, HOME_PLACE_ID);
-  }
-
-  /**
-   * Suggestive entry point invoked from a stay row when there is a non-trivial
-   * free window between the computed arrival ETA and effective check-in.
-   * Opens the item modal pre-filled with the day, the ETA as the target time,
-   * and a helper banner that explains the context.
-   */
-  addStopInFreeWindow(item: ViewTripItem) {
-    if (!item.day_id || !item.eta || !item.freeWindowMinutes || item.freeWindowMinutes <= 0) return;
-    const checkin = item.effectiveCheckinTime;
-    const window = this.formatDurationMinutes(item.freeWindowMinutes);
-    const banner = checkin
-      ? `Arriving at ${item.eta}, check-in ${checkin} — about ${window} free before the room is ready.`
-      : `Arriving at ${item.eta} — about ${window} free before check-in.`;
-    this.addItem(item.day_id, undefined, { prefillTime: item.eta, helperBanner: banner });
   }
 
   editItem(item: TripItem) {
@@ -3472,10 +3827,15 @@ export class TripComponent implements AfterViewInit, OnDestroy {
       const previous = routeItems[index - 1];
       const current = routeItems[index];
       const estimate = estimates[index - 1];
+
+      if (this.transportSegmentCoversNextLeg(previous)) {
+        const fixedTime = this.parseTimeMinutes(current.time);
+        cursor = fixedTime ?? cursor + this.itemStopDurationMinutes(previous);
+        continue;
+      }
+
       const travelMinutes = Math.ceil((estimate?.duration ?? 0) / 60);
-      const stopDuration =
-        previous.isVirtualCheckout || this.isAccommodationPlace(previous.place) ? 0 : (previous.place?.duration ?? 0);
-      cursor += stopDuration + travelMinutes;
+      cursor += this.itemStopDurationMinutes(previous) + travelMinutes;
 
       let newTime = this.formatTimeMinutes(cursor);
       if (current.isVirtualCheckout || current.isVirtualStay) {
@@ -3490,6 +3850,12 @@ export class TripComponent implements AfterViewInit, OnDestroy {
           cursor = checkinMinutes;
           newTime = this.formatTimeMinutes(checkinMinutes);
         }
+      }
+
+      if (!this.canAutoShiftScheduleItem(current)) {
+        const fixedTime = this.parseTimeMinutes(current.time);
+        if (fixedTime != null) cursor = fixedTime;
+        continue;
       }
 
       if (current.time === newTime) continue;
@@ -3520,6 +3886,10 @@ export class TripComponent implements AfterViewInit, OnDestroy {
 
     const routeRequests = [];
     for (let index = 0; index < routeItems.length - 1; index++) {
+      if (this.transportSegmentCoversNextLeg(routeItems[index])) {
+        routeRequests.push(of({ distance: 0, duration: 0 }));
+        continue;
+      }
       const from = this.tripItemCoordinate(routeItems[index]);
       const to = this.tripItemCoordinate(routeItems[index + 1]);
       if (!from || !to) continue;
@@ -3549,9 +3919,9 @@ export class TripComponent implements AfterViewInit, OnDestroy {
       });
   }
 
-  openRetimingPreview(day: TripDay, changes: TripRetimingChange[]) {
+  openRetimingPreview(day: TripDay, changes: TripRetimingChange[], header = 'Recalculate Times') {
     const modal = this.dialogService.open(TripRetimingPreviewModalComponent, {
-      header: 'Recalculate Times',
+      header,
       modal: true,
       appendTo: 'body',
       closable: true,

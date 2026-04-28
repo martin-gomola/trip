@@ -181,7 +181,8 @@ html {
 }
 
 @media (max-width: 767px) {
-  .place-mobile-actions.p-menu {
+  .place-mobile-actions.p-menu,
+  .trip-mobile-actions.p-menu {
     position: fixed !important;
     inset: auto 0.75rem max(0.75rem, env(safe-area-inset-bottom)) 0.75rem !important;
     width: auto !important;
@@ -196,7 +197,8 @@ html {
       0 2px 12px rgba(15, 23, 42, 0.12);
   }
 
-  .place-mobile-actions .p-menu-submenu-label {
+  .place-mobile-actions .p-menu-submenu-label,
+  .trip-mobile-actions .p-menu-submenu-label {
     padding: 0.5rem 0.75rem 0.75rem;
     font-size: 0.875rem;
     font-weight: 700;
@@ -204,23 +206,28 @@ html {
   }
 
   .place-mobile-actions .p-menu-item-link,
-  .place-mobile-actions .p-menu-item-content {
+  .place-mobile-actions .p-menu-item-content,
+  .trip-mobile-actions .p-menu-item-link,
+  .trip-mobile-actions .p-menu-item-content {
     min-height: 48px;
     border-radius: 12px;
   }
 
-  .place-mobile-actions .p-menu-item-link {
+  .place-mobile-actions .p-menu-item-link,
+  .trip-mobile-actions .p-menu-item-link {
     gap: 0.875rem;
     padding: 0.75rem;
   }
 
-  .place-mobile-actions .p-menu-item-icon {
+  .place-mobile-actions .p-menu-item-icon,
+  .trip-mobile-actions .p-menu-item-icon {
     width: 1.5rem;
     font-size: 1.25rem;
     text-align: center;
   }
 
-  .place-mobile-actions .p-menu-item-label {
+  .place-mobile-actions .p-menu-item-label,
+  .trip-mobile-actions .p-menu-item-label {
     font-size: 1.05rem;
     font-weight: 500;
   }

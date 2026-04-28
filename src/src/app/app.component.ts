@@ -16,10 +16,13 @@ import { filter } from 'rxjs/operators';
   styleUrl: './app.component.scss',
 })
 export class AppComponent {
+  private static readonly UPDATE_RELOAD_KEY = 'trip.updateReload';
+  private static readonly UPDATE_RELOAD_SUPPRESS_MS = 5 * 60 * 1000;
   private utilsService = inject(UtilsService);
   private swUpdate = inject(SwUpdate);
   private messageService = inject(MessageService);
   private destroyRef = inject(DestroyRef);
+  private pendingUpdateHash: string | null = null;
   loadingMessage = this.utilsService.loadingMessage;
 
   constructor() {
@@ -35,7 +38,11 @@ export class AppComponent {
         filter((event): event is VersionReadyEvent => event.type === 'VERSION_READY'),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe(() => {
+      .subscribe((event) => {
+        const updateHash = event.latestVersion.hash;
+        if (this.wasUpdateReloadedRecently(updateHash)) return;
+
+        this.pendingUpdateHash = updateHash;
         this.messageService.add({
           key: 'app-update',
           severity: 'info',
@@ -49,6 +56,35 @@ export class AppComponent {
   }
 
   reloadForUpdate(): void {
+    this.rememberUpdateReload();
+    this.messageService.clear('app-update');
     this.swUpdate.activateUpdate().finally(() => document.location.reload());
+  }
+
+  private wasUpdateReloadedRecently(hash: string): boolean {
+    try {
+      const raw = sessionStorage.getItem(AppComponent.UPDATE_RELOAD_KEY);
+      if (!raw) return false;
+      const state = JSON.parse(raw) as { hash?: string; timestamp?: number };
+      return (
+        state.hash === hash &&
+        typeof state.timestamp === 'number' &&
+        Date.now() - state.timestamp < AppComponent.UPDATE_RELOAD_SUPPRESS_MS
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  private rememberUpdateReload(): void {
+    if (!this.pendingUpdateHash) return;
+    try {
+      sessionStorage.setItem(
+        AppComponent.UPDATE_RELOAD_KEY,
+        JSON.stringify({ hash: this.pendingUpdateHash, timestamp: Date.now() }),
+      );
+    } catch {
+      // Reload still matters more than remembering the dismissed update toast.
+    }
   }
 }

@@ -245,18 +245,61 @@
     [class]="viewFilters() ? 'h-2/3' : 'h-full'">
     <div class="w-full h-full flex flex-col flex-1 rounded-lg shadow-lg shadow-black/5">
       <div class="p-4 border-b border-primary-200 dark:border-primary-800">
-        <div class="flex items-center justify-between gap-4">
-          <div class="flex items-center gap-2 min-w-0">
-            <h2 class="text-base font-semibold text-primary-900 dark:text-white">Places</h2>
-            <span
-              class="px-2.5 py-1 bg-blue-100 dark:bg-blue-900 rounded-lg text-xs font-bold text-blue-900 dark:text-white border-dashed"
-              [class]="hideOutOfBoundsPlaces() ? 'border-2 border-blue-400' : undefined">{{ visiblePlaces().length
-              }}</span>
+        <div class="flex flex-col gap-3">
+          <div class="flex min-w-0 items-center justify-between gap-3">
+            <div class="flex min-w-0 flex-wrap items-center gap-2">
+              <h2 class="text-base font-semibold text-primary-900 dark:text-white">Places</h2>
+              <span
+                class="rounded-lg bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-900 border-dashed dark:bg-blue-900 dark:text-white"
+                [class]="hideOutOfBoundsPlaces() ? 'border-2 border-blue-400' : undefined">
+                {{ visiblePlaces().length }}
+              </span>
+              @if (selectedBulkPlaces().length) {
+                <span class="rounded-lg bg-red-50 px-2.5 py-1 text-xs font-bold text-red-600 dark:bg-red-950">
+                  {{ selectedBulkPlaces().length }} selected
+                </span>
+              }
+            </div>
+
+            <p-button
+              text
+              icon="pi pi-times"
+              severity="danger"
+              size="small"
+              pTooltip="Close places"
+              tooltipPosition="left"
+              (click)="togglePlacesList()" />
           </div>
 
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center justify-end gap-1">
+            <p-button
+              text
+              icon="pi pi-check-square"
+              size="small"
+              pTooltip="Select visible places"
+              tooltipPosition="left"
+              [disabled]="visiblePlaces().length === 0"
+              (click)="selectVisiblePlaces()" />
+            <p-button
+              text
+              icon="pi pi-trash"
+              severity="danger"
+              size="small"
+              tooltipPosition="left"
+              [pTooltip]="selectedBulkPlaces().length ? 'Delete selected places' : 'Select places first'"
+              [disabled]="selectedBulkPlaces().length === 0"
+              (click)="deleteSelectedPlaces()" />
+            @if (selectedBulkPlaces().length) {
+              <p-button
+                text
+                icon="pi pi-times-circle"
+                size="small"
+                pTooltip="Clear selection"
+                tooltipPosition="left"
+                (click)="clearBulkPlaceSelection()" />
+            }
             <button (click)="toggleOutOfBoundsPlaces()" pTooltip="Show out-of-bounds places" tooltipPosition="left"
-              class="cursor-pointer flex items-center justify-center size-10 rounded-lg transition-all" [class]="
+              class="cursor-pointer flex items-center justify-center size-10 min-h-10 min-w-10 rounded-lg transition-all" [class]="
                   hideOutOfBoundsPlaces()
                     ? 'bg-blue-50 dark:bg-blue-950'
                     : 'hover:bg-primary-100 dark:hover:bg-primary-900'
@@ -269,7 +312,7 @@
             </button>
 
             <button (click)="togglePlacesListFiltering()"
-              class="cursor-pointer flex items-center justify-center size-10 rounded-lg transition-all" [class]="
+              class="cursor-pointer flex items-center justify-center size-10 min-h-10 min-w-10 rounded-lg transition-all" [class]="
                   viewPlacesListFiltering()
                     ? 'bg-blue-50 dark:bg-blue-950'
                     : 'hover:bg-primary-100 dark:hover:bg-primary-900'
@@ -280,8 +323,6 @@
                       : 'text-primary-700 dark:text-primary-300'
                   "></i>
             </button>
-
-            <p-button text icon="pi pi-times" severity="danger" (click)="togglePlacesList()" />
           </div>
         </div>
 
@@ -341,9 +382,24 @@
         <div class="transition-all duration-300 space-y-2">
           @defer (on viewport) {
           @for (place of visiblePlaces(); track place.id) {
-          <app-place-list-item [place]="place" [showMeta]="true" (clickEmitter)="togglePlaceSelection(place)"
-            (editEmitter)="editPlace(place)" (mouseEnterEmitter)="hoverPlace(place)"
-            (mouseLeaveEmitter)="resetHoverPlace()"></app-place-list-item>
+          <div class="relative">
+            <div
+              class="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded bg-white/85 p-1 shadow-sm dark:bg-primary-900/85"
+              (click)="$event.stopPropagation()">
+              <p-checkbox
+                [binary]="true"
+                [ngModel]="isBulkPlaceSelected(place.id)"
+                (onChange)="setBulkPlaceSelected(place, $event.checked)" />
+            </div>
+            <app-place-list-item
+              class="block pl-9"
+              [place]="place"
+              [showMeta]="true"
+              (clickEmitter)="togglePlaceSelection(place)"
+              (editEmitter)="editPlace(place)"
+              (mouseEnterEmitter)="hoverPlace(place)"
+              (mouseLeaveEmitter)="resetHoverPlace()"></app-place-list-item>
+          </div>
           } @empty {
           <div class="flex flex-col items-center justify-center col-span-full py-12 text-center px-6">
             <i class="pi pi-map-marker text-primary-300 dark:text-primary-700 mb-3" style="font-size: 24px"></i>

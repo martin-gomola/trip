@@ -48,9 +48,6 @@
           <img [src]="trip.image || 'cover.webp'" loading="lazy"
             class="select-none h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105" />
 
-          <div class="absolute inset-0 bg-linear-to-t from-primary-950/75 via-primary-900/0 to-primary-900/0">
-          </div>
-
           <div class="absolute left-3 top-3 flex gap-1.5">
             @if (trip.collaborators.length) {
             <span

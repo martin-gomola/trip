@@ -186,7 +186,12 @@
                     icon="pi pi-ellipsis-h"
                     severity="secondary"
                     (click)="openMenuTripActionsItems($event)" />
-                  <p-menu #menuTripActions [model]="menuTripActionsItems" [popup]="true" appendTo="body" />
+                  <p-menu
+                    #menuTripActions
+                    [model]="menuTripActionsItems"
+                    [popup]="true"
+                    appendTo="body"
+                    [pt]="{ root: 'trip-mobile-actions' }" />
                   <div class="flex sm:hidden">
                     <p-button text icon="pi pi-window-minimize" (click)="togglePlansPanel()" />
                   </div>
@@ -214,7 +219,12 @@
                       text
                       size="small"
                       pTooltip="Export" />
-                    <p-menu #menuTripExport [model]="menuTripExportItems" appendTo="body" [popup]="true" />
+                    <p-menu
+                      #menuTripExport
+                      [model]="menuTripExportItems"
+                      appendTo="body"
+                      [popup]="true"
+                      [pt]="{ root: 'trip-mobile-actions' }" />
                   </div>
                 </div>
 
@@ -445,7 +455,12 @@
                 </div>
               }
             </div>
-            <p-menu #menuPlanDayActions [model]="menuPlanDayActionsItems" appendTo="body" [popup]="true" />
+            <p-menu
+              #menuPlanDayActions
+              [model]="menuPlanDayActionsItems"
+              appendTo="body"
+              [popup]="true"
+              [pt]="{ root: 'trip-mobile-actions' }" />
           </div>
 
           <div
@@ -1189,9 +1204,24 @@
           </div>
         </div>
       }
-      <p-menu #menuSelectedItemActions [model]="menuSelectedItemActionsItems" appendTo="body" [popup]="true" />
-      <p-menu #menuSelectedDayActions [model]="menuSelectedDayActionsItems" appendTo="body" [popup]="true" />
-      <p-menu #menuTripDayActions [model]="menuTripDayActionsItems" appendTo="body" [popup]="true" />
+      <p-menu
+        #menuSelectedItemActions
+        [model]="menuSelectedItemActionsItems"
+        appendTo="body"
+        [popup]="true"
+        [pt]="{ root: 'trip-mobile-actions' }" />
+      <p-menu
+        #menuSelectedDayActions
+        [model]="menuSelectedDayActionsItems"
+        appendTo="body"
+        [popup]="true"
+        [pt]="{ root: 'trip-mobile-actions' }" />
+      <p-menu
+        #menuTripDayActions
+        [model]="menuTripDayActionsItems"
+        appendTo="body"
+        [popup]="true"
+        [pt]="{ root: 'trip-mobile-actions' }" />
     </div>
 
     <p-dialog
@@ -1313,7 +1343,12 @@
         </div>
       </section>
     </p-dialog>
-    <p-menu #menuTripPacking [model]="menuTripPackingItems" attachTo="body" [popup]="true" />
+    <p-menu
+      #menuTripPacking
+      [model]="menuTripPackingItems"
+      attachTo="body"
+      [popup]="true"
+      [pt]="{ root: 'trip-mobile-actions' }" />
     <p-dialog
       header="Packing List"
       [draggable]="false"

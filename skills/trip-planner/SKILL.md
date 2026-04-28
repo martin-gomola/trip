@@ -109,7 +109,12 @@ The CLI defaults to `http://localhost:8050` and `.env`. Pass `--base-url "$TRIP_
 - Accommodation rows use `booking_status` for booking state. Leave generic item `status` empty unless it is a non-booking planning flag on a normal itinerary item.
 - `roadtrip apply` should stay idempotent when the app retimes an item: match by day + exact time + text first, then by unique day + text before creating a new item.
 - Itinerary order is currently time-driven. UI drag/drop reordering persists by moving item time slots within the same day, not by a separate sort-order column.
+- Schedule math must reserve stop duration before the next activity. Prefer item-level `duration_minutes`, then place default `duration`, then zero.
 - Always validate and dry-run before applying a generated trip. After applying an accommodation stay, verify `stay_checkout_day_id`, `stay_checkout_time`, `booking_status`, `cost_status`, and `fee_amount` survived the container write.
+- For tour PDFs, extract text to a temporary file first and check whether the document is a detailed day programme or only a pre-trip dossier. If exact domestic/train times are missing, import them as `pending` placeholders with comments instead of inventing certainty.
+- Avoid `place google-search` for bulk trip imports unless the user wants global places: it creates standalone places. Prefer explicit `places` with `trip_only: true` in the roadtrip JSON, then validate/dry-run/apply.
+- Flight rows often cross time zones. Keep their visible `time` as the local airport departure time, put the arrival as its own local-time row, and do not let flight duration push the downstream local itinerary clock. Transit/waiting blocks after arrival can still use `duration_minutes`.
+- Schedule fixes and retiming previews must never rewrite official ticket, booking, constraint, or transport times. If ETA math is wrong, show the warning or let the fixed row reset the chain to its printed time.
 
 ## Recovering `.env`
 
