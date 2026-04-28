@@ -123,6 +123,7 @@ const ROUTE_ESTIMATE_SPEEDS_KMH = {
 const VIRTUAL_ITEM_ID_OFFSET = 1_000_000_000;
 
 const ETA_DELTA_BADGE_THRESHOLD_MIN = 5;
+const COLLAPSED_DAYS_STORAGE_PREFIX = 'trip.collapsedDays';
 
 type TripItemFormValue = Omit<TripItem, 'place'> & { place?: number | null; new_place?: Partial<Place> | null };
 type NewTripItemFormValue = Omit<TripItemFormValue, 'day_id'> & { day_id: number[] };
@@ -207,6 +208,7 @@ export class TripComponent implements AfterViewInit, OnDestroy {
   isTextAndPlaceToggled = signal<boolean>(false);
   draggedItemId = signal<number | null>(null);
   dragOverItemId = signal<number | null>(null);
+  collapsedDayIds = signal<Set<number>>(new Set());
   isCompactViewport = signal<boolean>(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
 
   panelWidth = signal<number | null>(null);
@@ -271,6 +273,110 @@ export class TripComponent implements AfterViewInit, OnDestroy {
   dayHasRealItems(group: DayViewModel): boolean {
     return group.items.some((item) => !item.isVirtualStay && !item.isVirtualCheckout);
   }
+
+  dayHasScheduleWarnings(group: DayViewModel): boolean {
+    return group.items.some((item) => item.scheduleConflictMinutes != null);
+  }
+
+  isDayCollapsed(group: DayViewModel): boolean {
+    if (this.searchQuery().trim()) return false;
+    if (this.selectedDay()?.id === group.day.id) return false;
+    if (this.highlightedDayId() === group.day.id || this.highlightedDayId() === -1) return false;
+    if (this.dayHasScheduleWarnings(group)) return false;
+    return this.collapsedDayIds().has(group.day.id);
+  }
+
+  collapsedDaySummary(group: DayViewModel): string {
+    const realItemCount = group.items.filter((item) => !item.isVirtualStay && !item.isVirtualCheckout).length;
+    if (realItemCount > 0) return `${realItemCount} plan${realItemCount === 1 ? '' : 's'} hidden`;
+
+    const stayItem = group.items.find((item) => item.isVirtualStay);
+    if (stayItem?.text) return stayItem.text;
+
+    const checkoutItem = group.items.find((item) => item.isVirtualCheckout);
+    if (checkoutItem?.text) return checkoutItem.text;
+
+    return 'No real plans yet';
+  }
+
+  toggleDayCollapsed(dayOrGroup: TripDay | DayViewModel) {
+    const dayId = 'day' in dayOrGroup ? dayOrGroup.day.id : dayOrGroup.id;
+    const shouldCollapse = !this.collapsedDayIds().has(dayId);
+
+    this.collapsedDayIds.update((ids) => {
+      const next = new Set(ids);
+      if (shouldCollapse) next.add(dayId);
+      else next.delete(dayId);
+      return next;
+    });
+
+    if (shouldCollapse && this.selectedDay()?.id === dayId) {
+      this.selectedDay.set(null);
+      this.toggleTripDayHighlight(null);
+    }
+
+    this.persistCollapsedDays();
+  }
+
+  expandAllDays() {
+    this.collapsedDayIds.set(new Set());
+    this.persistCollapsedDays();
+  }
+
+  collapseQuietDays() {
+    const collapsedIds = new Set(this.collapsedDayIds());
+    this.tripViewModel().forEach((group) => {
+      if (!this.dayHasRealItems(group) && !this.dayHasScheduleWarnings(group)) collapsedIds.add(group.day.id);
+    });
+    this.collapsedDayIds.set(collapsedIds);
+    this.persistCollapsedDays();
+  }
+
+  private initializeCollapsedDays(viewModel: DayViewModel[]) {
+    const tripId = this.trip()?.id;
+    if (!tripId || this.collapsedDaysInitializedForTripId === tripId) return;
+
+    const storedIds = this.readCollapsedDayIds(tripId);
+    const validDayIds = new Set(viewModel.map((group) => group.day.id));
+    const collapsedIds =
+      storedIds ??
+      new Set(
+        viewModel
+          .filter((group) => !this.dayHasRealItems(group) && !this.dayHasScheduleWarnings(group))
+          .map((group) => group.day.id),
+      );
+
+    this.collapsedDayIds.set(new Set([...collapsedIds].filter((id) => validDayIds.has(id))));
+    this.collapsedDaysInitializedForTripId = tripId;
+    this.persistCollapsedDays();
+  }
+
+  private collapsedDaysStorageKey(tripId: number): string {
+    return `${COLLAPSED_DAYS_STORAGE_PREFIX}:${tripId}`;
+  }
+
+  private readCollapsedDayIds(tripId: number): Set<number> | null {
+    if (typeof window === 'undefined') return null;
+
+    const raw = localStorage.getItem(this.collapsedDaysStorageKey(tripId));
+    if (!raw) return null;
+
+    try {
+      const ids = JSON.parse(raw);
+      if (!Array.isArray(ids)) return null;
+      return new Set(ids.filter((id) => Number.isInteger(id)));
+    } catch {
+      return null;
+    }
+  }
+
+  private persistCollapsedDays() {
+    if (typeof window === 'undefined') return;
+    const tripId = this.trip()?.id;
+    if (!tripId) return;
+    localStorage.setItem(this.collapsedDaysStorageKey(tripId), JSON.stringify([...this.collapsedDayIds()]));
+  }
+
   selectedItems = computed(() => {
     const ids = this.selectedItemIds();
     return this.tripViewModel()
@@ -1028,6 +1134,7 @@ export class TripComponent implements AfterViewInit, OnDestroy {
   roadbookLegendGroups: RoadbookLegendGroup[] = ROADBOOK_LEGEND_GROUPS;
   exchangeRates = signal<Record<string, number>>({});
   private exchangeRateKey = '';
+  private collapsedDaysInitializedForTripId: number | null = null;
 
   map?: L.Map;
   markerClusterGroup?: L.MarkerClusterGroup;
@@ -1060,6 +1167,13 @@ export class TripComponent implements AfterViewInit, OnDestroy {
     this.plansSearchInput.valueChanges
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed())
       .subscribe((value) => this.searchQuery.set(value || ''));
+
+    effect(() => {
+      const trip = this.trip();
+      const viewModel = this.tripViewModel();
+      if (!trip) return;
+      untracked(() => this.initializeCollapsedDays(viewModel));
+    });
 
     effect(() => {
       const trip = this.trip();
@@ -1431,6 +1545,11 @@ export class TripComponent implements AfterViewInit, OnDestroy {
             command: () => this.addItemToDay(day),
           },
           {
+            label: this.collapsedDayIds().has(day.id) ? 'Expand day' : 'Collapse day',
+            icon: this.collapsedDayIds().has(day.id) ? 'pi pi-angle-down' : 'pi pi-angle-right',
+            command: () => this.toggleDayCollapsed(day),
+          },
+          {
             label: 'Recalculate Times',
             icon: 'pi pi-refresh',
             disabled: this.trip()!.archived,
@@ -1533,6 +1652,11 @@ export class TripComponent implements AfterViewInit, OnDestroy {
             command: () => this.onDayClick(d),
           },
           {
+            label: this.collapsedDayIds().has(d.id) ? 'Expand day' : 'Collapse day',
+            icon: this.collapsedDayIds().has(d.id) ? 'pi pi-angle-down' : 'pi pi-angle-right',
+            command: () => this.toggleDayCollapsed(d),
+          },
+          {
             label: 'Add item',
             icon: 'pi pi-plus',
             disabled: this.trip()!.archived,
@@ -1623,6 +1747,21 @@ export class TripComponent implements AfterViewInit, OnDestroy {
         },
       ],
     };
+    const itineraryView = {
+      label: 'Itinerary View',
+      items: [
+        {
+          label: 'Expand all days',
+          icon: 'pi pi-angle-down',
+          command: () => this.expandAllDays(),
+        },
+        {
+          label: 'Collapse quiet days',
+          icon: 'pi pi-angle-right',
+          command: () => this.collapseQuietDays(),
+        },
+      ],
+    };
     const actions = {
       label: 'Trip',
       items: [
@@ -1666,7 +1805,7 @@ export class TripComponent implements AfterViewInit, OnDestroy {
       ],
     };
 
-    this.menuTripActionsItems = [lists, collaboration, actions];
+    this.menuTripActionsItems = [lists, itineraryView, collaboration, actions];
     this.menuTripActions.toggle(event);
   }
 
@@ -1680,6 +1819,11 @@ export class TripComponent implements AfterViewInit, OnDestroy {
             icon: 'pi pi-plus',
             disabled: this.trip()!.archived,
             command: () => this.addItemToDay(d),
+          },
+          {
+            label: this.collapsedDayIds().has(d.id) ? 'Expand day' : 'Collapse day',
+            icon: this.collapsedDayIds().has(d.id) ? 'pi pi-angle-down' : 'pi pi-angle-right',
+            command: () => this.toggleDayCollapsed(d),
           },
           {
             label: 'Open Navigation',

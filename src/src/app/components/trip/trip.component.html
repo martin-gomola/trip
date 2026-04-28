@@ -384,11 +384,21 @@
             @let visibleProps = selectedItemPropsSet();
             <div class="space-y-4 pb-4">
               @for (group of tripViewModel(); track group.day.id) {
+                @let dayCollapsed = isDayCollapsed(group);
                 <div
                   class="z-20 sticky top-0 flex flex-col gap-3 p-4 min-w-0 bg-primary-50 dark:bg-primary-800 hover:bg-primary-100 border-b border-b-primary-200 dark:border-b-primary-400 dark:hover:bg-primary-900 transition-colors border-l-primary-500 dark:border-l-primary-400 cursor-pointer sm:flex-row sm:items-center sm:justify-between sm:gap-2"
                   [class]="selectedDay()?.id == group.day.id ? 'border-l-4' : 'border-l-0'"
                   (click)="onDayClick(group.day)">
                   <div class="flex items-center gap-3 min-w-0 w-full sm:flex-1">
+                    <button
+                      type="button"
+                      class="shrink-0 inline-flex size-8 items-center justify-center rounded-md text-primary-500 transition-colors hover:bg-primary-100 hover:text-primary-800 dark:hover:bg-primary-900 dark:hover:text-primary-100"
+                      [attr.aria-expanded]="!dayCollapsed"
+                      [attr.aria-label]="dayCollapsed ? 'Expand day' : 'Collapse day'"
+                      [pTooltip]="dayCollapsed ? 'Expand day' : 'Collapse day'"
+                      (click)="toggleDayCollapsed(group); $event.stopPropagation()">
+                      <i [class]="dayCollapsed ? 'pi pi-chevron-right text-xs' : 'pi pi-chevron-down text-xs'"></i>
+                    </button>
                     <div
                       class="shrink-0 flex items-center justify-center w-10 h-10 rounded-lg bg-primary-100 dark:bg-primary-900/30"
                       [class]="highlightedDayId() === group.day.id ? 'ring-2 ring-primary-500 bg-primary-200' : ''">
@@ -401,6 +411,11 @@
                       <p class="text-xs text-primary-500 dark:text-primary-400 truncate">
                         {{ group.day.dt | date: 'd MMM, y' }}
                       </p>
+                      @if (dayCollapsed) {
+                        <p class="mt-0.5 text-xs text-primary-500 dark:text-primary-400 truncate">
+                          {{ collapsedDaySummary(group) }}
+                        </p>
+                      }
                     </div>
                   </div>
 
@@ -461,7 +476,8 @@
                   </div>
                 </div>
 
-                <div class="space-y-2 px-2 md:px-4">
+                @if (!dayCollapsed) {
+                  <div class="space-y-2 px-2 md:px-4">
                   @for (item of group.items; track item.id) {
                     <div
                       class="group relative rounded-lg bg-white dark:bg-primary-900 border border-primary-200 dark:border-primary-700 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-sm transition-all cursor-pointer"
@@ -741,7 +757,8 @@
                       </div>
                     </div>
                   }
-                </div>
+                  </div>
+                }
               }
             </div>
           } @placeholder (minimum 0.4s) {
