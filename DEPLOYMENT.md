@@ -2,8 +2,6 @@
 
 Minimalist self-hosted POI map tracker and trip planner.
 
-Upstream: <https://github.com/itskovacs/trip>
-
 ## Access
 
 - **Web UI**: `http://<YOUR_SERVER_IP>:8050`
@@ -43,11 +41,12 @@ Key env vars (full list in `.env.example`):
 | Var | Default | Notes |
 |-----|---------|-------|
 | `TRIP_PORT` | `8050` | Host port for the web UI |
-| `TRIP_VERSION` | `1` | Image tag (`ghcr.io/itskovacs/trip:1`) |
+| `TRIP_VERSION` | `1` | Local image tag for this fork |
 | `TRIP_DOMAIN` / `TRIP_BASE_URL` | _unset_ | Public domain and URL for reverse proxy / integrations |
 | `REGISTER_ENABLE` | `false` | Disable open sign-ups |
 | `DEFAULT_MAP_LAT` / `DEFAULT_MAP_LNG` | _unset_ | Default map center |
 | `TRIP_API_TOKEN` | _unset_ | Secret token for integrations; keep out of git |
+| `MAPY_COM_API_KEY` | _unset_ | Secret Mapy.com API key/token for Mapy.com tile presets |
 | `OIDC_*` | _unset_ | Set all four to enable SSO |
 | `ATTACHMENT_MAX_SIZE` | `10485760` | 10 MB; raise reverse-proxy body limit too |
 
@@ -67,6 +66,4 @@ make logs SERVICE=trip
 docker exec -it trip ls /app/storage
 ```
 
-If OIDC fails with an SSL/cert error against an internal IdP, see the upstream
-[configuration docs](https://github.com/itskovacs/trip/blob/main/docs/docs/getting-started/configuration.md)
-for building a custom image with your CA cert.
+If OIDC fails with an SSL/cert error against an internal IdP, build this fork's image with your CA cert and set `TRIP_IMAGE` to that local image name.

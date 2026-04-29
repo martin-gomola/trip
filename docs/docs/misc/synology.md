@@ -8,6 +8,8 @@ import TabItem from '@theme/TabItem';
 
 # Installing on Synology NAS
 
+This page is a reference for NAS installs. The main supported path for this fork is the repository `docker-compose.yml` plus `make deploy`.
+
 ## Prerequisites
 
 - Synology NAS with Docker support
@@ -44,7 +46,7 @@ version: "3.9"
 services:
   trip:
     container_name: trip
-    image: ghcr.io/itskovacs/trip:1
+    image: trip-local:1
     user: 1000:1000 # Adjust to your account PUID:PGID
     security_opt:
       - no-new-privileges:true
@@ -55,7 +57,7 @@ services:
       - "8080:8000"
 ```
 
-5. Click Deploy the stack.
+5. Build or load the `trip-local:1` image from this fork before deploying the stack.
 
 </TabItem>
     
@@ -65,7 +67,7 @@ services:
 2. Fill out the following fields:
 
 - **Name**: `trip`
-- **Image**: `ghcr.io/itskovacs/trip:1`
+- **Image**: `trip-local:1`
 - **Port mapping**: `8080` → `8000`
 - **Volume mapping**:
   - Host: `/volume1/docker/trip-storage` (adjust to storage dir)

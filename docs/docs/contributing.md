@@ -4,12 +4,10 @@ sidebar_position: 8
 
 # Contributing
 
-Contributions are welcome!
+This repository is a personal deployment fork. Changes here are tuned for the hosted instance and local trip-planning workflow.
 
-- Open an [issue](https://github.com/itskovacs/trip/issues) to report bugs
-- Start a [discussion](https://github.com/itskovacs/trip/discussions) to share ideas
-- Submit a [pull request](https://github.com/itskovacs/trip/pulls) to integrate your new features.
+- Keep runtime secrets out of git.
+- Use `.env.example` and `DEPLOYMENT.md` for deployment changes.
+- Prefer small, practical changes that match this fork's Docker workflow.
 
-TRIP is and will always remain completely free, no paywalled features, no telemetry, no tracking, no ads.
-
-**Love using TRIP? Please consider supporting the project and its development by [☕ buying me a coffee](https://ko-fi.com/itskovacs). Thank you 🫶!**
+Original project credit stays in the repository README.

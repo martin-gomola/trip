@@ -4,14 +4,14 @@ import type * as Preset from "@docusaurus/preset-classic";
 
 const config: Config = {
   title: "TRIP",
-  tagline: "Minimalist POI Map Tracker and Trip Planner",
+  tagline: "Personal TRIP fork documentation",
   favicon: "img/favicon.png",
   future: {
     v4: true,
   },
-  url: "https://itskovacs.github.io",
+  url: "https://martin-gomola.github.io",
   baseUrl: "/trip/",
-  organizationName: "itskovacs",
+  organizationName: "martin-gomola",
   projectName: "trip",
   onBrokenLinks: "throw",
   i18n: {
@@ -50,7 +50,7 @@ const config: Config = {
           label: "Documentation",
         },
         {
-          href: "https://github.com/itskovacs/trip",
+          href: "https://github.com/martin-gomola/trip",
           className: "header-github-link",
           position: "right",
           ariaLabel: "GitHub repository",

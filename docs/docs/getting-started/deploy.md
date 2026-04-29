@@ -5,23 +5,31 @@ description: Deploy TRIP
 
 # Deployment
 
-Deployment is designed to be simple using Docker.
-If you need help, feel free to open a [discussion](https://github.com/itskovacs/trip/discussions).
+This fork deploys from the local checkout with Docker Compose.
 
-### Option 1: Docker Compose (Recommended)
+### Docker Compose
 
-Use the `docker-compose.yml` file provided in the repository. No changes are required, though you may customize it to suit your needs.
+Copy the example environment file, edit private values, then build and recreate the container:
 
 ```bash
-docker-compose up -d
+cp .env.example .env
+make deploy
 ```
 
-### Option 2: Docker Run
+The app listens on `http://localhost:8050` by default. For a server, point your reverse proxy at port `8050`.
+
+After creating the first user, keep registration closed:
 
 ```bash
-# Ensure you have the latest image
-docker pull ghcr.io/itskovacs/trip:1
+REGISTER_ENABLE=false
+```
 
-# Run the container
-docker run -d -p 8080:8000 -v ./storage:/app/storage ghcr.io/itskovacs/trip:1
+Useful commands:
+
+```bash
+make deploy
+make restart
+make logs
+make ps
+make down
 ```

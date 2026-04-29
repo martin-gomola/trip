@@ -2,8 +2,16 @@ name: Build and Deploy docs to GitHub Pages
 
 on:
   push:
-    tags:
-      - '*'
+    branches:
+      - main
+    paths:
+      - "docs/**"
+      - ".github/workflows/gh-pages.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -31,6 +39,9 @@ jobs:
 
       - name: Build website
         run: npm run build
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
 
       - name: Upload Build Artifact
         uses: actions/upload-pages-artifact@v3

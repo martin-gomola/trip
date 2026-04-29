@@ -130,6 +130,7 @@ If `.env` is missing and the Docker container still exists, recover the expected
 - `DEFAULT_MAP_LAT`
 - `DEFAULT_MAP_LNG`
 - `TRIP_API_TOKEN`
+- `MAPY_COM_API_KEY`
 
 Recommended extraction shape:
 
