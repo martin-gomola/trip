@@ -12,13 +12,14 @@ skills/trip-planner/scripts/trip_api.py docs endpoint google-search
 skills/trip-planner/scripts/trip_api.py docs live
 ```
 
-Browse upstream docs only when the user asks for latest upstream behavior, the compact catalog is missing an answer, or `docs live` reports drift from the running app.
+Use this fork's docs when the compact catalog is missing an answer. Treat this fork's code, local docs, and deployed docs as authoritative; do not route TRIP app questions to upstream docs.
 
 ## Sources
 
-- Official API key docs: `https://itskovacs.github.io/trip/docs/trip-api/generating-api-key/`
-- Official place creation docs: `https://itskovacs.github.io/trip/docs/trip-api/place-creation/`
-- Official Google search creation docs: `https://itskovacs.github.io/trip/docs/trip-api/place-google-search/`
+- Fork documentation site: `https://martin-gomola.github.io/trip/`
+- API key docs: `https://martin-gomola.github.io/trip/docs/trip-api/generating-api-key/`
+- Place creation docs: `https://martin-gomola.github.io/trip/docs/trip-api/place-creation/`
+- Google search creation docs: `https://martin-gomola.github.io/trip/docs/trip-api/place-google-search/`
 
 ## Authentication
 
@@ -34,7 +35,7 @@ These endpoints are present in the running local app's OpenAPI schema:
 | `POST` | `/api/by_token/place` | `trip_api.py place create` |
 | `POST` | `/api/by_token/google-search` | `trip_api.py place google-search` |
 
-The official docs currently document place creation and Google-backed place creation. The categories endpoint is useful for checking exact category names before creating a place.
+The docs currently document place creation and Google-backed place creation. The categories endpoint is useful for checking exact category names before creating a place.
 
 ## Place Creation
 

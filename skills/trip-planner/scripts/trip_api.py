@@ -77,9 +77,9 @@ API_CATALOG: dict[str, dict[str, Any]] = {
 }
 
 API_DOC_SOURCES = [
-    "https://itskovacs.github.io/trip/docs/trip-api/generating-api-key/",
-    "https://itskovacs.github.io/trip/docs/trip-api/place-creation/",
-    "https://itskovacs.github.io/trip/docs/trip-api/place-google-search/",
+    "https://martin-gomola.github.io/trip/docs/trip-api/generating-api-key/",
+    "https://martin-gomola.github.io/trip/docs/trip-api/place-creation/",
+    "https://martin-gomola.github.io/trip/docs/trip-api/place-google-search/",
 ]
 
 ROADTRIP_TEMPLATE: dict[str, Any] = {
@@ -928,7 +928,8 @@ def cmd_docs_brief(args: argparse.Namespace) -> None:
     print("TRIP by-token API compact context")
     print("Auth: X-Api-Token header; never print token values.")
     print("Default local base URL: http://localhost:8050")
-    print("Use `docs live` for a cheap running-app drift check before browsing.")
+    print("Fork docs: https://martin-gomola.github.io/trip/")
+    print("Use local code and fork docs as authoritative for TRIP app behavior.")
     for name, spec in API_CATALOG.items():
         required = ", ".join(spec["required"]) or "none"
         optional = ", ".join(spec["optional"]) or "none"

@@ -71,7 +71,7 @@ skills/trip-planner/scripts/trip_api.py roadtrip apply @/tmp/roadtrip.json
 skills/trip-planner/scripts/trip_api.py roadtrip show <trip-id>
 ```
 
-Roadtrip creation uses TRIP's local container and SQLModel models because trip/day/item writes are not exposed by the by-token API. Use the by-token commands for standalone POIs. For API questions, start with the CLI docs before reading references or browsing:
+Roadtrip creation uses TRIP's local container and SQLModel models because trip/day/item writes are not exposed by the by-token API. Use the by-token commands for standalone POIs. For API questions, start with the CLI docs before reading references or this fork's documentation site:
 
 ```bash
 skills/trip-planner/scripts/trip_api.py docs brief
@@ -79,7 +79,7 @@ skills/trip-planner/scripts/trip_api.py docs endpoint place
 skills/trip-planner/scripts/trip_api.py docs live
 ```
 
-Use web docs only when the user explicitly asks for latest upstream behavior, the local docs do not answer the question, or `docs live` shows catalog drift. Use the CLI for by-token API work instead of ad hoc curl commands:
+Use this fork's docs at `https://martin-gomola.github.io/trip/` when local docs do not answer the question. Treat this fork's code, local docs, and deployed docs as authoritative; do not route TRIP app questions to upstream docs. Use the CLI for by-token API work instead of ad hoc curl commands:
 
 ```bash
 skills/trip-planner/scripts/trip_api.py config
