@@ -1354,6 +1354,7 @@ export class TripComponent implements AfterViewInit, OnDestroy {
 
   plansPanelBottomPx(): number | null {
     const selectedHeight = this.selectedPanelHeight();
+    if (this.isCompactViewport()) return selectedHeight > 0 ? selectedHeight + 16 : 88;
     return selectedHeight > 0 ? selectedHeight + 16 : null;
   }
 

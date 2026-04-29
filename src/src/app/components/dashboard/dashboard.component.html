@@ -16,8 +16,8 @@
   (removeEmitter)="removePlaceGPX()" (closeEmitter)="closePlaceGPX()"></app-place-gpx>
 }
 
-<div class="fixed top-0 left-0 z-40 pointer-events-none">
-  <div class="mx-4 mt-4 sm:mx-6 sm:mt-6 pointer-events-auto">
+<div class="fixed map-safe-top-left z-40 hidden pointer-events-none md:block">
+  <div class="pointer-events-auto">
     <div class="w-fit h-12 p-2 bg-white/70 dark:bg-primary-900/70 backdrop-blur-xl rounded-lg shadow-lg shadow-black/5">
       <div (click)="navigateToTrips()"
         class="cursor-pointer flex items-center gap-2.5 h-8 px-4 hover:bg-primary-100 dark:hover:bg-primary-800 rounded-lg">
@@ -30,8 +30,8 @@
   </div>
 </div>
 
-<div class="fixed top-0 right-0 z-40 pointer-events-none">
-  <div class="pointer-events-auto mr-4 mt-4 sm:mr-6 sm:mt-6 lg:w-88">
+<div class="fixed map-safe-top-right z-40 hidden pointer-events-none md:block">
+  <div class="pointer-events-auto lg:w-88">
     <div
       class="w-full inline-flex items-center gap-2 p-1.5 bg-white/70 dark:bg-primary-900/70 backdrop-blur-xl rounded-lg shadow-lg shadow-black/5">
       <div (click)="togglePlacesList()"
@@ -86,8 +86,8 @@
   </div>
 </div>
 
-<div class="fixed bottom-0 right-0 z-40 pointer-events-none">
-  <div class="mx-4 mb-4 sm:mx-6 sm:mb-6 pointer-events-auto">
+<div class="fixed map-safe-bottom-right z-40 hidden pointer-events-none md:block">
+  <div class="pointer-events-auto">
     <div
       class="inline-flex items-center gap-2 p-1.5 bg-white/70 dark:bg-primary-900/70 backdrop-blur-xl rounded-lg shadow-lg shadow-black/5">
       <button (click)="menuCreatePlacePopover.toggle($event)"
@@ -110,8 +110,56 @@
   </div>
 </div>
 
+<nav class="fixed map-safe-bottom-nav z-40 pointer-events-none md:hidden">
+  <div
+    class="pointer-events-auto mx-auto flex max-w-md items-center justify-between gap-1 rounded-xl bg-white/80 p-1.5 shadow-2xl shadow-black/15 ring-1 ring-black/5 backdrop-blur-xl dark:bg-primary-900/80 dark:ring-white/10">
+    <button type="button" (click)="navigateToTrips()" pTooltip="Trips" aria-label="Trips"
+      class="flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-lg text-primary-700 transition-all hover:bg-primary-100 dark:text-primary-300 dark:hover:bg-primary-800">
+      <i class="pi pi-list text-sm"></i>
+    </button>
+
+    <button type="button" (click)="togglePlacesList()" pTooltip="Places" aria-label="Places"
+      class="flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-lg transition-all" [class]="
+        viewPlacesList()
+          ? 'bg-primary-100 text-primary-600 dark:bg-primary-800 dark:text-primary-400'
+          : 'text-primary-700 hover:bg-primary-100 dark:text-primary-300 dark:hover:bg-primary-800'
+      ">
+      <i class="pi text-sm transition-transform duration-200" [class]="viewPlacesList() ? 'pi-times rotate-90' : 'pi-map-marker'"></i>
+    </button>
+
+    <button type="button" (click)="toggleFilters()" pTooltip="Filters" aria-label="Filters"
+      class="flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-lg transition-all" [class]="
+        viewFilters()
+          ? 'bg-primary-100 text-primary-600 dark:bg-primary-800 dark:text-primary-400'
+          : 'text-primary-700 hover:bg-primary-100 dark:text-primary-300 dark:hover:bg-primary-800'
+      ">
+      <i class="pi text-sm transition-transform duration-200" [class]="viewFilters() ? 'pi-times rotate-90' : 'pi-filter'"></i>
+    </button>
+
+    <button type="button" (click)="addPlaceModal()" pTooltip="Add place" aria-label="Add place"
+      class="flex min-h-12 min-w-12 cursor-pointer items-center justify-center rounded-xl bg-primary-900 text-white shadow-lg shadow-primary-900/20 transition-all active:scale-95 dark:bg-primary-100 dark:text-primary-950">
+      <i class="pi pi-plus text-base"></i>
+    </button>
+
+    <button type="button" (click)="centerOnMe()" pTooltip="Center on my location" aria-label="Center on my location"
+      class="flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-lg text-primary-700 transition-all hover:bg-primary-100 dark:text-primary-300 dark:hover:bg-primary-800">
+      <i class="pi pi-bullseye text-sm"></i>
+    </button>
+
+    <button type="button" (click)="toggleSettings()" pTooltip="Settings" aria-label="Settings"
+      class="group flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-lg text-primary-700 transition-all hover:bg-primary-100 dark:text-primary-300 dark:hover:bg-primary-800">
+      <i class="pi pi-cog text-sm transition-transform duration-300 group-hover:rotate-90"></i>
+    </button>
+
+    <button type="button" (click)="menuCreatePlacePopover.toggle($event)" pTooltip="More" aria-label="More"
+      class="flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-lg text-primary-700 transition-all hover:bg-primary-100 dark:text-primary-300 dark:hover:bg-primary-800">
+      <i class="pi pi-ellipsis-h text-sm"></i>
+    </button>
+  </div>
+</nav>
+
 <section
-  class="pointer-events-none fixed top-20 md:top-22 bottom-20 md:bottom-22 right-4 md:right-6 z-30 flex w-[calc(100%-2rem)] flex-col gap-3 md:w-64 lg:w-88">
+  class="pointer-events-none fixed map-safe-side-panel z-30 flex flex-col gap-3 md:w-64 lg:w-88">
   @if (viewFilters()) {
   <div animate.enter="slide-y-no-opacity" animate.leave="a-slide-y"
     class="pointer-events-auto min-h-0 ring-1 ring-black/5 dark:ring-white/10 bg-white/70 dark:bg-primary-900/70 backdrop-blur-xl rounded-lg w-full shadow-2xl flex flex-col"
@@ -421,14 +469,14 @@
 </section>
 
 @if (viewSettings()) {
-<section class="absolute inset-0 flex items-center justify-center z-40 bg-primary-900/30 backdrop-blur-xl">
+<section class="fixed inset-0 flex items-end justify-center z-40 bg-primary-900/30 backdrop-blur-xl sm:items-center sm:p-4">
   <div
-    class="w-10/12 max-w-screen md:max-w-3xl h-fit max-h-[90vh] bg-white rounded-xl shadow-2xl z-50 dark:bg-primary-900 flex flex-col overflow-clip">
+    class="settings-dialog w-full h-[100dvh] max-h-[100dvh] bg-white rounded-none shadow-2xl z-50 dark:bg-primary-900 flex flex-col overflow-clip sm:w-10/12 sm:max-w-screen md:max-w-3xl sm:h-fit sm:max-h-[90vh] sm:rounded-xl">
     <div
-      class="flex-none flex items-center justify-between gap-4 p-4 md:p-6 border-b border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-800">
+      class="settings-dialog-header flex-none flex items-center justify-between gap-3 p-3 md:p-6 border-b border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-800">
       <div class="flex items-center gap-3 min-w-0">
         <div
-          class="flex shrink-0 items-center justify-center size-9 rounded-lg bg-primary-100 dark:bg-primary-900/40 border border-primary-200 dark:border-primary-800">
+          class="hidden shrink-0 items-center justify-center size-9 rounded-lg bg-primary-100 dark:bg-primary-900/40 border border-primary-200 dark:border-primary-800 sm:flex">
           <i class="pi pi-cog text-primary-600 dark:text-primary-400 text-sm"></i>
         </div>
         <div class="min-w-0">
@@ -446,68 +494,65 @@
       </div>
     </div>
 
-    <p-tabs [(value)]="tabsIndex" scrollable>
-      <p-tablist>
-        <p-tab [value]="0" class="flex items-center gap-2">
+    <p-tabs [(value)]="tabsIndex" scrollable class="settings-tabs flex min-h-0 flex-1 flex-col overflow-hidden">
+      <p-tablist class="settings-tablist flex-none">
+        <p-tab [value]="0" class="flex items-center gap-2 text-sm sm:text-base">
           <i class="pi pi-info-circle"></i><span class="font-bold whitespace-nowrap">About</span>
         </p-tab>
-        <p-tab [value]="1" class="flex items-center gap-2">
+        <p-tab [value]="1" class="flex items-center gap-2 text-sm sm:text-base">
           <i class="pi pi-shield"></i><span class="font-bold whitespace-nowrap">Account</span>
         </p-tab>
-        <p-tab [value]="2" class="flex items-center gap-2">
+        <p-tab [value]="2" class="flex items-center gap-2 text-sm sm:text-base">
           <i class="pi pi-sliders-v"></i><span class="font-bold whitespace-nowrap">Preferences</span>
         </p-tab>
-        <p-tab [value]="3" class="flex items-center gap-2">
+        <p-tab [value]="3" class="flex items-center gap-2 text-sm sm:text-base">
           <i class="pi pi-th-large"></i><span class="font-bold whitespace-nowrap">Categories</span>
         </p-tab>
-        <p-tab [value]="4" class="flex items-center gap-2">
+        <p-tab [value]="4" class="flex items-center gap-2 text-sm sm:text-base">
           <i class="pi pi-database"></i><span class="font-bold whitespace-nowrap">Data</span>
         </p-tab>
       </p-tablist>
-      <p-tabpanels>
+      <p-tabpanels class="min-h-0 flex-1 overflow-hidden">
         <p-tabpanel [value]="0">
-          <div class="max-h-[60vh] overflow-y-auto">
-            <div class="mt-4 grid md:grid-cols-2 gap-4">
+          <div class="settings-panel-scroll">
+            <div class="grid gap-3 py-3 sm:mt-4 sm:grid-cols-2 sm:gap-4 sm:py-0">
               <a href="https://martin-gomola.github.io/trip/docs/intro" target="_blank"
-                class="group relative p-6 bg-linear-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl hover:shadow-lg transition-all duration-200 overflow-clip">
+                class="group relative p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl hover:shadow-lg transition-all duration-200 overflow-clip sm:p-6">
                 <div class="flex gap-4 items-center relative z-10">
-                  <div class="text-4xl">📘</div>
+                  <div class="flex size-11 shrink-0 items-center justify-center rounded-lg bg-white/80 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300">
+                    <i class="pi pi-book text-lg"></i>
+                  </div>
                   <div>
                     <h3 class="text-lg font-semibold text-primary-900 dark:text-white mb-1">Documentation</h3>
                     <p class="text-sm text-primary-600 dark:text-primary-400">Learn how to use TRIP</p>
                   </div>
                 </div>
-                <div
-                  class="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500">
-                </div>
               </a>
 
               <div (click)="tabsIndex = 4"
-                class="cursor-pointer group relative p-6 bg-primary-100 dark:bg-primary-800 rounded-2xl hover:shadow-lg transition-all duration-200 overflow-clip">
+                class="cursor-pointer group relative p-4 bg-primary-100 dark:bg-primary-800 rounded-xl hover:shadow-lg transition-all duration-200 overflow-clip sm:p-6">
                 <div class="flex gap-4 items-center relative z-10">
-                  <div class="text-4xl">🗃️</div>
+                  <div class="flex size-11 shrink-0 items-center justify-center rounded-lg bg-white/80 text-primary-700 dark:bg-primary-950/60 dark:text-primary-200">
+                    <i class="pi pi-database text-lg"></i>
+                  </div>
                   <div>
                     <h3 class="text-lg font-semibold text-primary-900 dark:text-white mb-1">Data</h3>
                     <p class="text-sm text-primary-600 dark:text-primary-400">Manage your data</p>
                   </div>
                 </div>
-                <div
-                  class="absolute top-0 right-0 w-32 h-32 bg-primary-500/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500">
-                </div>
               </div>
 
               @if (settings()?.is_admin) {
               <div (click)="toggleAdminMode()"
-                class="cursor-pointer group relative p-6 bg-linear-to-br from-red-50 to-red-200 dark:from-red-900/20 dark:to-red-900/40 rounded-2xl hover:shadow-lg transition-all duration-200 overflow-clip">
+                class="cursor-pointer group relative p-4 bg-red-50 dark:bg-red-900/20 rounded-xl hover:shadow-lg transition-all duration-200 overflow-clip sm:p-6">
                 <div class="flex gap-4 items-center relative z-10">
-                  <div class="text-4xl">🛡️</div>
+                  <div class="flex size-11 shrink-0 items-center justify-center rounded-lg bg-white/80 text-red-600 dark:bg-red-950/60 dark:text-red-300">
+                    <i class="pi pi-shield text-lg"></i>
+                  </div>
                   <div>
                     <h3 class="text-lg font-semibold text-primary-900 dark:text-white mb-1">Administration</h3>
                     <p class="text-sm text-primary-600 dark:text-primary-400">Administrate TRIP</p>
                   </div>
-                </div>
-                <div
-                  class="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500">
                 </div>
               </div>
               }
@@ -516,7 +561,7 @@
           </div>
         </p-tabpanel>
         <p-tabpanel [value]="1">
-          <div class="max-h-[60vh] overflow-y-auto">
+          <div class="settings-panel-scroll">
             <div class="select-none mx-auto py-4 space-y-4">
               <section
                 class="rounded-xl bg-white dark:bg-primary-800 shadow-sm border border-primary-200 dark:border-primary-700 overflow-clip transition-all duration-200">
@@ -700,7 +745,7 @@
           </div>
         </p-tabpanel>
         <p-tabpanel [value]="2">
-          <div class="max-h-[60vh] overflow-y-auto">
+          <div class="settings-panel-scroll">
             <div class="select-none mx-auto py-4 space-y-4">
               <section [formGroup]="settingsForm"
                 class="rounded-xl bg-white dark:bg-primary-800 shadow-sm border border-primary-200 dark:border-primary-700">
@@ -894,15 +939,15 @@
                   </div>
 
                   <div
-                    class="flex items-center justify-between py-3 px-4 rounded-lg bg-primary-50 dark:bg-black/50 border border-primary-100 dark:border-primary-700">
-                    <div class="flex items-center gap-3 min-w-0 flex-1">
+                    class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between py-3 px-4 rounded-lg bg-primary-50 dark:bg-black/50 border border-primary-100 dark:border-primary-700">
+                    <div class="flex items-start gap-3 min-w-0 flex-1 md:items-center">
                       <i class="pi pi-equals text-primary-600 dark:text-primary-400 shrink-0"></i>
                       <div class="min-w-0">
                         <span class="font-medium text-sm text-primary-900 dark:text-primary-100 block">Duplicate
-                          distance threshold</span>
-                        <p class="text-xs text-primary-500 dark:text-primary-400 hidden lg:block">
-                          Control how closely strings must match. Higher values accept more differences; 0 to
-                          disable
+                          match threshold</span>
+                        <p class="text-xs text-primary-500 dark:text-primary-400">
+                          Warns when a new place name is similar to an existing one. Higher values catch looser
+                          matches; 0 disables duplicate warnings.
                         </p>
                       </div>
                     </div>
@@ -959,7 +1004,7 @@
           </div>
         </p-tabpanel>
         <p-tabpanel [value]="3">
-          <div class="max-h-[60vh] overflow-y-auto">
+          <div class="settings-panel-scroll">
             <div class="flex flex-col gap-4 py-4 mx-auto">
               <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 <div (click)="addCategory()"
@@ -1012,7 +1057,7 @@
           </div>
         </p-tabpanel>
         <p-tabpanel [value]="4">
-          <div class="max-h-[60vh] overflow-y-auto">
+          <div class="settings-panel-scroll">
             <div class="flex flex-col gap-4 py-4 mx-auto">
               <div
                 class="flex flex-col sm:flex-row gap-4 p-5 rounded-xl bg-blue-50 dark:bg-blue-900 border border-blue-100 dark:border-blue-700">

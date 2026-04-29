@@ -3,7 +3,7 @@
     <div id="map" class="w-full h-full"></div>
   </div>
 
-  <div class="fixed top-4 right-4 z-10 pointer-events-none lg:w-88">
+  <div class="fixed top-4 right-4 z-10 hidden pointer-events-none md:block lg:w-88">
     <div class="pointer-events-auto">
       <div
         class="select-none flex items-center gap-2 p-1.5 bg-white/70 dark:bg-black/70 backdrop-blur-xl rounded-lg shadow-lg shadow-black/5">
@@ -90,6 +90,50 @@
       </div>
     </div>
   </div>
+
+  <nav class="fixed map-safe-bottom-nav z-50 pointer-events-none md:hidden" [class.hidden]="selectedPanelHeight() > 0">
+    <div
+      class="pointer-events-auto mx-auto grid max-w-md grid-cols-4 gap-1 rounded-xl bg-white/85 p-1.5 shadow-2xl shadow-black/15 ring-1 ring-black/5 backdrop-blur-xl dark:bg-black/80 dark:ring-white/10">
+      <button type="button" (click)="togglePlansPanel()" aria-label="Toggle itinerary panel"
+        class="flex min-h-12 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg px-2 text-xs font-semibold transition-all"
+        [class]="
+          !isPlansPanelCollapsed()
+            ? 'bg-primary-100 text-primary-700 dark:bg-primary-800 dark:text-primary-200'
+            : 'text-primary-700 hover:bg-primary-100 dark:text-primary-300 dark:hover:bg-primary-800'
+        ">
+        <i class="pi pi-list text-sm"></i>
+        <span>Plans</span>
+      </button>
+
+      <button type="button" (click)="toggleDaysPanel()" aria-label="Toggle days panel"
+        class="flex min-h-12 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg px-2 text-xs font-semibold transition-all"
+        [class]="
+          isDaysPanelVisible()
+            ? 'bg-primary-100 text-primary-700 dark:bg-primary-800 dark:text-primary-200'
+            : 'text-primary-700 hover:bg-primary-100 dark:text-primary-300 dark:hover:bg-primary-800'
+        ">
+        <i class="pi pi-calendar text-sm"></i>
+        <span>Days</span>
+      </button>
+
+      <button type="button" (click)="togglePlacesPanel()" aria-label="Toggle places panel"
+        class="flex min-h-12 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg px-2 text-xs font-semibold transition-all"
+        [class]="
+          isPlacesPanelVisible()
+            ? 'bg-primary-100 text-primary-700 dark:bg-primary-800 dark:text-primary-200'
+            : 'text-primary-700 hover:bg-primary-100 dark:text-primary-300 dark:hover:bg-primary-800'
+        ">
+        <i class="pi pi-map-marker text-sm"></i>
+        <span>Places</span>
+      </button>
+
+      <button type="button" (click)="centerOnMe()" aria-label="Center on my location"
+        class="flex min-h-12 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg px-2 text-xs font-semibold text-primary-700 transition-all hover:bg-primary-100 dark:text-primary-300 dark:hover:bg-primary-800">
+        <i class="pi pi-bullseye text-sm"></i>
+        <span>Locate</span>
+      </button>
+    </div>
+  </nav>
 
   @if (trip()?.archived && isArchiveWarningVisible()) {
     <div
@@ -392,7 +436,7 @@
                   <div class="flex items-center gap-3 min-w-0 w-full sm:flex-1">
                     <button
                       type="button"
-                      class="shrink-0 inline-flex size-8 items-center justify-center rounded-md text-primary-500 transition-colors hover:bg-primary-100 hover:text-primary-800 dark:hover:bg-primary-900 dark:hover:text-primary-100"
+                      class="shrink-0 inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-primary-500 transition-colors hover:bg-primary-100 hover:text-primary-800 dark:hover:bg-primary-900 dark:hover:text-primary-100"
                       [attr.aria-expanded]="!dayCollapsed"
                       [attr.aria-label]="dayCollapsed ? 'Expand day' : 'Collapse day'"
                       [pTooltip]="dayCollapsed ? 'Expand day' : 'Collapse day'"
@@ -804,7 +848,7 @@
   </section>
 
   <section
-    class="pointer-events-none fixed top-18 bottom-4 right-4 z-30 flex w-[calc(100%-2rem)] flex-col gap-3 print:hidden md:w-64 lg:w-88">
+    class="pointer-events-none fixed map-safe-side-panel z-30 flex flex-col gap-3 print:hidden md:w-64 lg:w-88">
     @if (isDaysPanelVisible()) {
       <div
         animate.enter="slide-y-no-opacity"
