@@ -32,6 +32,26 @@ html {
   overscroll-behavior: none;
 }
 
+html,
+body {
+  margin: 0;
+  background-color: #fafafa;
+}
+
+body {
+  min-height: 100dvh;
+}
+
+html.dark,
+html.dark body {
+  background-color: #09090b;
+}
+
+app-root {
+  display: block;
+  min-height: 100dvh;
+}
+
 // Leaflet override et custom classes
 .class-tooltip {
   border-radius: 8px;
@@ -270,6 +290,12 @@ html {
   right: calc(env(safe-area-inset-right, 0px) + 1rem);
   bottom: calc(env(safe-area-inset-bottom, 0px) + 5.5rem);
   width: calc(100% - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 2rem);
+}
+
+.map-safe-plans-panel {
+  top: calc(env(safe-area-inset-top, 0px) + 0.5rem);
+  left: calc(env(safe-area-inset-left, 0px) + 0.5rem);
+  right: calc(env(safe-area-inset-right, 0px) + 0.5rem);
 }
 
 @media (min-width: 640px) {
