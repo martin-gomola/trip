@@ -30,6 +30,14 @@ html {
   line-height: normal;
   scroll-behavior: smooth;
   overscroll-behavior: none;
+
+  // iOS standalone PWA hack: with viewport-fit=cover + black-translucent,
+  // the document is shifted up under the notch, leaving a same-height white
+  // gap at the bottom (the home-indicator zone). Extending html by the top
+  // safe-area inset keeps the body painting all the way to the physical
+  // bottom edge so the gap disappears.
+  // Reference: https://dev.to/karmasakshi/make-your-pwas-look-handsome-on-ios-1o08
+  min-height: calc(100% + env(safe-area-inset-top, 0px));
 }
 
 html,
@@ -39,7 +47,11 @@ body {
 }
 
 body {
-  min-height: 100dvh;
+  // 100vh (NOT 100dvh) is the only height unit that's correct from cold start
+  // in iOS PWA standalone mode. 100dvh reports stale values until the user
+  // rotates the device, which is what was leaving a white strip at the bottom.
+  // Reference: https://gist.github.com/fozzedout/5e77925381991a9570151550992baf14 (Section 2)
+  min-height: 100vh;
 }
 
 html.dark,
@@ -49,19 +61,22 @@ html.dark body {
 
 app-root {
   display: block;
-  min-height: 100dvh;
+  // 100vh (NOT 100dvh) — see body min-height comment above.
+  min-height: 100vh;
 }
 
 .safe-page {
   box-sizing: border-box;
-  min-height: 100dvh;
+  // 100vh (NOT 100dvh) — see body min-height comment above for the iOS PWA
+  // cold-start gotcha.
+  min-height: 100vh;
   padding-top: env(safe-area-inset-top, 0px);
   padding-right: env(safe-area-inset-right, 0px);
   padding-left: env(safe-area-inset-left, 0px);
 }
 
 .safe-page-fill {
-  min-height: calc(100dvh - env(safe-area-inset-top, 0px));
+  min-height: calc(100vh - env(safe-area-inset-top, 0px));
 }
 
 // Lift Leaflet controls (zoom, attribution, scale, etc.) above the iOS
