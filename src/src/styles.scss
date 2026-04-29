@@ -52,6 +52,18 @@ app-root {
   min-height: 100dvh;
 }
 
+.safe-page {
+  box-sizing: border-box;
+  min-height: 100dvh;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.safe-page-fill {
+  min-height: calc(100dvh - env(safe-area-inset-top, 0px));
+}
+
 // Leaflet override et custom classes
 .class-tooltip {
   border-radius: 8px;
@@ -318,6 +330,10 @@ app-root {
     right: calc(env(safe-area-inset-right, 0px) + 1rem);
     bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
     left: calc(env(safe-area-inset-left, 0px) + 1rem);
+  }
+
+  .map-safe-alert-top {
+    top: calc(env(safe-area-inset-top, 0px) + 1rem);
   }
 }
 

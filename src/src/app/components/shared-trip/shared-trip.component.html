@@ -1,11 +1,11 @@
 @defer (when trip()) {
   @if (trip()) {
-    <div class="relative h-screen w-screen overflow-hidden bg-primary-950" [class.prettyprint]="printOptions()">
+    <div class="relative h-[100dvh] w-screen overflow-hidden bg-primary-950" [class.prettyprint]="printOptions()">
       <div class="fixed inset-0 w-full h-full z-0">
         <div id="map" class="w-full h-full"></div>
       </div>
 
-      <div class="fixed top-4 right-4 z-10 pointer-events-none lg:w-88">
+      <div class="fixed map-safe-top-right z-10 pointer-events-none lg:w-88">
         <div class="pointer-events-auto">
           <div
             class="select-none flex items-center gap-2 p-1.5 bg-white/70 dark:bg-black/70 backdrop-blur-xl rounded-lg shadow-lg shadow-black/5">
@@ -95,7 +95,7 @@
 
       @if (trip()?.archived && isArchiveWarningVisible()) {
         <div
-          class="fixed left-4 right-4 bottom-4 sm:bottom-auto sm:top-4 pointer-events-none z-50 flex justify-center print:hidden">
+          class="fixed left-4 right-4 bottom-4 sm:bottom-auto map-safe-alert-top pointer-events-none z-50 flex justify-center print:hidden">
           <div
             class="pointer-events-auto w-full max-w-xl rounded sm:rounded-2xl border border-orange-400/40 bg-orange-500/90 px-4 py-3 shadow-sm backdrop-blur-md dark:border-orange-400/30 dark:bg-orange-500/85">
             <div class="flex items-center gap-3">
@@ -530,7 +530,7 @@
       </section>
 
       <section
-        class="pointer-events-none fixed top-18 bottom-4 right-4 z-30 flex w-[calc(100%-2rem)] flex-col gap-3 print:hidden md:w-64 lg:w-88">
+        class="pointer-events-none fixed map-safe-side-panel z-30 flex flex-col gap-3 print:hidden md:w-64 lg:w-88">
         @if (isDaysPanelVisible()) {
           <div
             animate.enter="slide-y-no-opacity"
@@ -1616,7 +1616,7 @@
       </section>
     }
   } @else {
-    <section class="min-h-screen my-auto flex flex-col items-center justify-center gap-8">
+    <section class="safe-page my-auto flex flex-col items-center justify-center gap-8">
       <div class="mx-auto w-full text-center">
         <h1 class="text-2xl font-semibold text-primary-800 tracking-tight dark:text-white md:text-4xl">
           Trip not found
