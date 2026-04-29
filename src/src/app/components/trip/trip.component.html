@@ -200,7 +200,7 @@
     [style.bottom.px]="plansPanelBottomPx()"
     [style.width.px]="plansPanelWidthPx()"
     [style.height]="plansPanelHeightStyle()"
-    class="fixed map-safe-plans-panel max-w-[calc(100vw-1rem)] overflow-hidden md:top-4! md:left-4! md:right-4! md:h-auto! md:bottom-4! md:w-sm lg:w-md xl:w-lg md:max-w-1/3 z-40 transition-transform duration-300 ease-out">
+    class="fixed map-safe-plans-panel max-w-[calc(100vw-1rem)] overflow-visible md:top-4! md:left-4! md:right-4! md:h-auto! md:bottom-4! md:w-sm lg:w-md xl:w-lg md:max-w-1/3 z-40 transition-transform duration-300 ease-out">
     <div
       class="flex h-full overflow-hidden shadow rounded-lg ring-1 ring-black/5 dark:ring-white/10 bg-white/70 dark:bg-black/70 backdrop-blur-xl">
       <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -243,9 +243,7 @@
                 [popup]="true"
                 appendTo="body"
                 [pt]="{ root: 'trip-mobile-actions' }" />
-              <div class="flex sm:hidden">
-                <p-button text icon="pi pi-window-minimize" (click)="togglePlansPanel()" />
-              </div>
+              <p-button text icon="pi pi-window-minimize" pTooltip="Collapse itinerary" (click)="togglePlansPanel()" />
             </div>
           </div>
 
@@ -840,9 +838,13 @@
     </div>
 
     <button
+      type="button"
       (click)="togglePlansPanel()"
       [class]="isPlansPanelCollapsed() ? 'flex' : 'hidden md:flex'"
-      class="absolute -right-8 top-1/2 translate-y-1/2 items-center justify-center w-8 h-10 bg-white dark:bg-primary-900 shadow rounded-e-lg text-primary-500 hover:text-primary-600 cursor-pointer">
+      [attr.aria-label]="isPlansPanelCollapsed() ? 'Expand itinerary panel' : 'Collapse itinerary panel'"
+      [pTooltip]="isPlansPanelCollapsed() ? 'Expand itinerary' : 'Collapse itinerary'"
+      tooltipPosition="right"
+      class="absolute -right-8 top-1/2 -translate-y-1/2 items-center justify-center w-8 h-10 bg-white dark:bg-primary-900 shadow rounded-e-lg text-primary-500 hover:text-primary-600 cursor-pointer">
       <i [class]="isPlansPanelCollapsed() ? 'pi pi-chevron-right' : 'pi pi-chevron-left'" class="text-xs font-bold"></i>
     </button>
   </section>
