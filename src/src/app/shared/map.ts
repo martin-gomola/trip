@@ -4,6 +4,7 @@ import 'leaflet-contextmenu';
 import { ProviderBoundaries, Place } from '../types/poi';
 import { TripItem } from '../types/trip';
 import { Settings } from '../types/settings';
+import { openGoogleMapsNavigation } from './navigation';
 
 export const CARTO_VOYAGER_TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
 export const CARTO_DARK_TILE_URL = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
@@ -230,14 +231,7 @@ export function openGoogleMapsArea(latlng: L.LatLngLiteral, zoom = 16) {
 }
 
 export function openNavigation(coordinates: L.LatLngLiteral[]) {
-  if (!coordinates.length) return;
-
-  // GMaps
-  let url = 'https://www.google.com/maps/dir/';
-  if (coordinates.length == 1) url += '?api=1&destination=';
-  const waypoints = coordinates.map((c) => `${c.lat},${c.lng}`).join('/');
-  url += `${waypoints}`;
-  window.open(url, '_blank');
+  openGoogleMapsNavigation(coordinates);
 }
 
 export function getGeolocationLatLng(): Promise<{ lat?: number; lng?: number; err?: string }> {

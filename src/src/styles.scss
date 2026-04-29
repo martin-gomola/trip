@@ -95,6 +95,12 @@ app-root {
   right: env(safe-area-inset-right, 0);
 }
 
+@media (max-width: 767px) {
+  .leaflet-control-attribution.leaflet-control {
+    display: none !important;
+  }
+}
+
 // Leaflet override et custom classes
 .class-tooltip {
   border-radius: 8px;

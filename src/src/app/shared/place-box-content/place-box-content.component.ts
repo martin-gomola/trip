@@ -10,6 +10,7 @@ import { LinkifyPipe } from '../pipes/linkify.pipe';
 import { TooltipModule } from 'primeng/tooltip';
 import { ClipboardModule } from '@angular/cdk/clipboard';
 import { NaturalDurationPipe } from '../pipes/naturalduration.pipe';
+import { googleMapsNavigationUrl, openGoogleMapsNavigation } from '../navigation';
 
 @Component({
   selector: 'app-place-box-content',
@@ -179,7 +180,9 @@ export class PlaceBoxContentComponent implements OnChanges {
   }
 
   openNavigationToPlace() {
-    this.openNavigationEmitter.emit();
+    const place = this.selectedPlace;
+    if (!place || place.lat == null || place.lng == null) return;
+    openGoogleMapsNavigation([{ lat: place.lat, lng: place.lng }]);
   }
 
   googleMapsUrl(): string {
@@ -188,6 +191,12 @@ export class PlaceBoxContentComponent implements OnChanges {
     const namedQuery = [place.name, place.place].filter(Boolean).join(' ').trim();
     const query = namedQuery || `${place.lat},${place.lng}`;
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  }
+
+  navigationUrl(): string {
+    const place = this.selectedPlace;
+    if (!place || place.lat == null || place.lng == null) return 'https://www.google.com/maps';
+    return googleMapsNavigationUrl([{ lat: place.lat, lng: place.lng }]);
   }
 
   openUrl() {

@@ -121,13 +121,14 @@
             <i class="pi text-xs" [class]="tooltipCopied() ? 'pi-check text-green-600' : 'pi-copy'"></i>
           </button>
 
-          <button
-            type="button"
-            (click)="openNavigationToPlace()"
+          <a
+            [href]="navigationUrl()"
+            target="_blank"
+            rel="noopener"
             pTooltip="Navigate to Coordinates"
             class="inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-primary-100 dark:hover:bg-primary-700">
             <i class="pi pi-map-marker text-xs"></i>
-          </button>
+          </a>
 
           <a
             [href]="googleMapsUrl()"

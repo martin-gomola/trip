@@ -55,7 +55,8 @@
       "cacheConfig": {
         "strategy": "performance",
         "maxSize": 2000,
-        "maxAge": "30d"
+        "maxAge": "30d",
+        "cacheOpaqueResponses": true
       }
     },
     {
@@ -67,7 +68,8 @@
       "cacheConfig": {
         "strategy": "performance",
         "maxSize": 2000,
-        "maxAge": "30d"
+        "maxAge": "30d",
+        "cacheOpaqueResponses": true
       }
     },
     {
@@ -78,7 +80,8 @@
       "cacheConfig": {
         "strategy": "performance",
         "maxSize": 2000,
-        "maxAge": "30d"
+        "maxAge": "30d",
+        "cacheOpaqueResponses": true
       }
     }
   ]
