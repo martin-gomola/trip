@@ -25,9 +25,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git init "$GITHUB_WORKSPACE"
+          auth_header="$(printf '%s:%s' "x-access-token" "${GITHUB_TOKEN}" | base64 | tr -d '\n')"
+          git config --global http.https://github.com/.extraheader "AUTHORIZATION: basic ${auth_header}"
+
+          git init -b main "$GITHUB_WORKSPACE"
           git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
-          git -c http.extraheader="AUTHORIZATION: bearer ${GITHUB_TOKEN}" fetch --depth=1 origin "${GITHUB_SHA}"
+          GIT_TERMINAL_PROMPT=0 git fetch --depth=1 origin "${GITHUB_SHA}"
           git checkout --force FETCH_HEAD
 
       - name: Show tool versions
@@ -54,7 +57,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git -c http.extraheader="AUTHORIZATION: bearer ${GITHUB_TOKEN}" fetch origin gh-pages || true
+          GIT_TERMINAL_PROMPT=0 git fetch origin gh-pages || true
           if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
             git checkout --force -B gh-pages origin/gh-pages
           else
@@ -72,4 +75,4 @@ jobs:
           fi
 
           git commit -m "Deploy docs to GitHub Pages"
-          git -c http.extraheader="AUTHORIZATION: bearer ${GITHUB_TOKEN}" push origin gh-pages
+          GIT_TERMINAL_PROMPT=0 git push origin gh-pages
