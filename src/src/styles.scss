@@ -64,6 +64,22 @@ app-root {
   min-height: calc(100dvh - env(safe-area-inset-top, 0px));
 }
 
+// Lift Leaflet controls (zoom, attribution, scale, etc.) above the iOS
+// home-indicator safe area so the standalone PWA doesn't show a white strip
+// where the attribution background would otherwise sit on top of the gesture
+// bar zone.
+.leaflet-bottom {
+  bottom: env(safe-area-inset-bottom, 0);
+}
+
+.leaflet-left {
+  left: env(safe-area-inset-left, 0);
+}
+
+.leaflet-right {
+  right: env(safe-area-inset-right, 0);
+}
+
 // Leaflet override et custom classes
 .class-tooltip {
   border-radius: 8px;
