@@ -35,6 +35,8 @@ Alembic migrations for the local data model live in `backend/trip/alembic/versio
 
 ## Deploy
 
+Full deployment guide: <https://martin-gomola.github.io/trip/docs/getting-started/deploy>
+
 Copy the example config, edit it, then deploy:
 
 ```bash

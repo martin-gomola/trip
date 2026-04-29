@@ -1492,28 +1492,82 @@ export class TripComponent implements AfterViewInit, OnDestroy {
   }
 
   resetMapBounds() {
-    const allPlaces = this.places();
-
-    if (!allPlaces.length) {
-      const trip = this.trip();
-      if (!trip?.days.length) return;
-
-      const itemsWithCoordinates = this.tripViewModel()
-        .flatMap((dayVM) => dayVM.items)
-        .filter((i) => i.lat != null && i.lng != null);
-
-      if (!itemsWithCoordinates.length) return;
-      this.map?.fitBounds(
-        itemsWithCoordinates.map((i) => [i.lat!, i.lng!]),
-        { padding: [15, 15] },
-      );
+    const focusCoordinates = this.initialMapFocusCoordinates();
+    if (focusCoordinates.length) {
+      this.fitMapToCoordinates(focusCoordinates);
       return;
     }
 
-    this.map?.fitBounds(
-      allPlaces.map((p) => [p.lat, p.lng]),
-      { padding: [15, 15] },
+    const placeCoordinates = this.places().map((place) => ({ lat: place.lat, lng: place.lng }));
+    this.fitMapToCoordinates(placeCoordinates);
+  }
+
+  private initialMapFocusCoordinates(): L.LatLngLiteral[] {
+    const viewModel = this.tripViewModel();
+    const selectedDayId = this.selectedDay()?.id ?? this.highlightedDayId();
+    const selectedGroup =
+      selectedDayId && selectedDayId !== -1 ? viewModel.find((group) => group.day.id === selectedDayId) : undefined;
+
+    if (selectedGroup) {
+      const coordinates = this.dayFocusCoordinates(selectedGroup);
+      if (coordinates.length) return coordinates;
+    }
+
+    for (const group of viewModel) {
+      const coordinates = this.dayFocusCoordinates(group, true);
+      if (coordinates.length) return coordinates;
+    }
+
+    return this.focusCoordinatesFromItems(viewModel.flatMap((group) => group.items));
+  }
+
+  private dayFocusCoordinates(group: DayViewModel, destinationsOnly = false): L.LatLngLiteral[] {
+    return this.focusCoordinatesFromItems(
+      group.items.filter((item) => !item.isVirtualCheckout),
+      destinationsOnly,
     );
+  }
+
+  private focusCoordinatesFromItems(items: ViewTripItem[], destinationsOnly = false): L.LatLngLiteral[] {
+    const coordinates = items
+      .map((item) => this.mapFocusCoordinate(item))
+      .filter((coord): coord is L.LatLngLiteral => coord !== null);
+    const destinationCoordinates = coordinates.filter((coord) => !this.isHomeCoordinate(coord.lat, coord.lng));
+    if (destinationsOnly) return this.uniqueCoordinates(destinationCoordinates);
+    return this.uniqueCoordinates(destinationCoordinates.length ? destinationCoordinates : coordinates);
+  }
+
+  private fitMapToCoordinates(coordinates: L.LatLngLiteral[]) {
+    const uniqueCoordinates = this.uniqueCoordinates(coordinates);
+    if (!this.map || !uniqueCoordinates.length) return;
+
+    if (uniqueCoordinates.length === 1) {
+      const coordinate = uniqueCoordinates[0];
+      this.map.setView([coordinate.lat, coordinate.lng], 13);
+      return;
+    }
+
+    this.map.fitBounds(
+      uniqueCoordinates.map((coordinate) => [coordinate.lat, coordinate.lng]),
+      { padding: [30, 30], maxZoom: 14 },
+    );
+  }
+
+  private uniqueCoordinates(coordinates: L.LatLngLiteral[]): L.LatLngLiteral[] {
+    const seen = new Set<string>();
+    return coordinates.filter((coordinate) => {
+      const key = `${coordinate.lat.toFixed(6)},${coordinate.lng.toFixed(6)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  private mapFocusCoordinate(item: ViewTripItem): L.LatLngLiteral | null {
+    const lat = item.lat ?? item.place?.lat;
+    const lng = item.lng ?? item.place?.lng;
+    if (lat == null || lng == null) return null;
+    return { lat, lng };
   }
 
   normalizeItem(item: TripItem): ViewTripItem {
