@@ -69,6 +69,17 @@
         "maxSize": 2000,
         "maxAge": "30d"
       }
+    },
+    {
+      "name": "map-tiles-mapy",
+      "urls": [
+        "https://api.mapy.com/v1/maptiles/**"
+      ],
+      "cacheConfig": {
+        "strategy": "performance",
+        "maxSize": 2000,
+        "maxAge": "30d"
+      }
     }
   ]
 }
